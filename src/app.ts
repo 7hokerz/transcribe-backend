@@ -3,6 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import hpp from 'hpp';
+import swaggerUi from "swagger-ui-express";
+import fs from "node:fs";
+import path from "node:path";
+import yaml from "js-yaml";
 
 // Config imports
 import { corsOptions } from '#config/cors.config.js';
@@ -51,6 +55,19 @@ class App {
     this.express.use('/api', this.authMiddleware.authenticate());
 
     this.express.use('/api/v1/transcription', transcriptionRoutes);
+
+    if (process.env.NODE_ENV === "development") {
+      const specPath = path.join(process.cwd(), "swagger.yml");
+      const spec = yaml.load(fs.readFileSync(specPath, "utf8"));
+
+      this.express.use("/docs", (req, res, next) => {
+        const host = req.hostname; // "localhost", "127.0.0.1" 등
+        if (host === "localhost" || host === "127.0.0.1") return next();
+        return res.status(404).end();
+      });
+
+      this.express.use("/docs", swaggerUi.serve, swaggerUi.setup(spec as any));
+    }
   }
 
 

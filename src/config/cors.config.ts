@@ -1,11 +1,15 @@
 import { ForbiddenError, ERROR_CODES } from '#utils/errors.js';
 import type cors from 'cors';
 
+const API_URL = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:8080'
+  : ''
+
 /**
  * 허용된 CORS Origin 목록
  */
 const allowedOrigins = [
-  'https://quizgen.kr',
+  API_URL,
 ];
 
 export const corsOptions: cors.CorsOptions = {

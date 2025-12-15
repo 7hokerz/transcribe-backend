@@ -1,0 +1,216 @@
+openapi: 3.0.3
+info:
+  title: Transcribe Backend API
+  version: '1.0.0'
+  description: |-
+    오디오 전사 작업을 관리하는 API입니다. 인증이 필요한 엔드포인트는 HMAC 헤더를 요구합니다.
+    Audio transcription job API. Authenticated endpoints require HMAC headers.
+servers:
+  - url: http://localhost:8080
+    description: Local
+paths:
+  /health:
+    get:
+      summary: 헬스 체크
+      description: 서버 동작 여부를 확인합니다.
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+  /api/v1/transcription:
+    post:
+      summary: 전사 세션 제출 (Submit transcription session) **해당 API는 swagger에서 사용할 수 없습니다!**
+      description: |-
+        Cloud Storage의 `audios/{userId}/{sessionId}/` 경로에 업로드된 오디오 청크를 전사 큐에 등록합니다.
+        ffprobe로 형식/길이를 검증한 뒤 OpenAI 전사 모델을 호출하며, 결과는 Firestore/cache에 저장됩니다.
+      security:
+        - HMACSignature: []
+      parameters:
+        - $ref: '#/components/parameters/UserAgent'
+        - $ref: '#/components/parameters/TimestampHeader'
+        - $ref: '#/components/parameters/NonceHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscriptionSessionRequest'
+            example:
+              sessionId: 5ccfeaf1-4a57-4d55-9c0f-b9f246304f91
+              userId: user-123
+              transcriptionPrompt: '회의 요약용 안내 문구'
+      responses:
+        '202':
+          description: Accepted; 전사 작업이 큐에 등록되었습니다.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptionAcceptResponse'
+              example:
+                jobId: 5ccfeaf1-4a57-4d55-9c0f-b9f246304f91
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/ServerError'
+components:
+  securitySchemes:
+    HMACSignature:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: |-
+        `API_SECRET_KEY`로 `${METHOD}${PATH}${body}${timestamp}${nonce}` 문자열을 HMAC-SHA256으로 해싱한 후 hex로 인코딩한 값입니다.
+        - PATH: 요청 경로 (예: `/api/v1/transcription`).
+        - body: 공백 변형 없는 JSON 직렬화 문자열.
+        - timestamp: `X-Timestamp` 값(epoch ms).
+        - nonce: `X-Nonce` 값(32 hex, 요청마다 고유).
+        추가로 `User-Agent`, `X-Timestamp`, `X-Nonce` 헤더를 함께 전송해야 합니다.
+  parameters:
+    UserAgent:
+      name: User-Agent
+      in: header
+      required: true
+      schema:
+        type: string
+        example: ''
+      description: 클라이언트 식별용 고정 값.
+    TimestampHeader:
+      name: X-Timestamp
+      in: header
+      required: true
+      schema:
+        type: string
+        example: '1734230400000'
+      description: 클라이언트 기준 epoch milliseconds. 서버 시간과 ±5분 이내여야 합니다.
+    NonceHeader:
+      name: X-Nonce
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{32}$'
+        example: 4f0c8a1790a348f4a3c7f4d5b9c2e6fa
+      description: 재사용 불가한 32자리 hex nonce. 프로덕션에서는 한 번 사용된 nonce는 거부됩니다.
+  schemas:
+    TranscriptionSessionRequest:
+      type: object
+      required:
+        - sessionId
+        - userId
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: 세션 ID. Cloud Storage 경로 `audios/{userId}/{sessionId}/` 하위 청크를 식별합니다.
+        userId:
+          type: string
+          minLength: 1
+          description: 오디오 파일 소유 사용자 ID.
+        transcriptionPrompt:
+          type: string
+          maxLength: 220
+          description: (선택) 전사 품질 향상을 위한 힌트 프롬프트.
+    TranscriptionAcceptResponse:
+      type: object
+      required:
+        - jobId
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: 제출된 세션 ID와 동일한 작업 ID.
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+        - code
+        - message
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: 에러 클래스 이름(5xx는 `ServerError`).
+          example: UnauthorizedError
+        code:
+          type: string
+          description: 애플리케이션 에러 코드.
+          example: AUTH_INVALID_SIGNATURE
+        message:
+          type: string
+          description: 클라이언트에 노출되는 메시지.
+          example: 인증정보가 없습니다.
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          description: 개발 모드에서 포함될 수 있는 요청 경로.
+        details:
+          description: 검증 상세나 추가 메타데이터(선택).
+    ValidationErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+  responses:
+    BadRequest:
+      description: 잘못된 요청 본문이거나 JSON 문법 오류입니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: HMAC 헤더 또는 User-Agent가 누락/불일치했습니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: 스키마 검증(zod) 오류입니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    TooManyRequests:
+      description: 요청 한도를 초과했습니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadGateway:
+      description: 외부 전사 모델 호출 실패입니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServerError:
+      description: 서버 내부 오류입니다.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
