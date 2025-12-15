@@ -1,0 +1,59 @@
+{
+  "name": "transcribe-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --exec tsx --env-file=.env src/server.ts",
+    "dev:gc": "nodemon --exec tsx --expose-gc --env-file=.env src/server.ts",
+    "dev:inspect": "nodemon --exec tsx --inspect --env-file=.env src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@google-cloud/tasks": "^6.2.1",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.6.0",
+    "form-data": "^4.0.5",
+    "helmet": "^8.1.0",
+    "hpp": "^0.2.3",
+    "openai": "^6.10.0",
+    "p-queue": "^9.0.1",
+    "p-retry": "^7.1.1",
+    "undici": "^7.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/hpp": "^0.2.7",
+    "@types/node": "^22.19.3",
+    "cross-env": "^10.1.0",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "imports": {
+    "#dtos/*": "./dist/dtos/*",
+    "#common/*": "./dist/common/*",
+    "#config/*": "./dist/config/*",
+    "#controllers/*": "./dist/controllers/*",
+    "#services/*": "./dist/services/*",
+    "#repositories/*": "./dist/services/repositories/*",
+    "#routes/*": "./dist/routes/*",
+    "#utils/*": "./dist/utils/*",
+    "#queues/*": "./dist/queues/*"
+  }
+}

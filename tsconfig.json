@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "esnext",
+    "esModuleInterop": true,
+    "types": ["node"],
+
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleDetection": "force",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+
+    "baseUrl": "./src",
+    "paths": {
+      "#dtos/*": ["dtos/*"],
+      "#common/*": ["common/*"],
+      "#config/*": ["config/*"],
+      "#controllers/*": ["controllers/*"],
+      "#services/*": ["services/*"],
+      "#repositories/*": ["services/repositories/*"],
+      "#routes/*": ["routes/*"],
+      "#utils/*": ["utils/*"],
+      "#queues/*": ["queues/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
