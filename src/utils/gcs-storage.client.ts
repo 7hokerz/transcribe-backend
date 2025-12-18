@@ -6,9 +6,7 @@ export default class GcsStorageClient {
 
   constructor(private readonly bucket: GCSBucket) { }
 
-  /**
-   * 전체 파일 리스트 획득
-   */
+  // 전체 파일 리스트 획득
   public async getFiles(prefix: string, options?: { maxResults?: number }): Promise<AudioChunkRef[]> {
     const [allObjects] = await this.bucket.getFiles({ prefix, maxResults: options?.maxResults ?? 100 });
 
@@ -22,9 +20,7 @@ export default class GcsStorageClient {
       .filter(x => x.generation.length > 0);
   }
 
-  /**
-   * 개별 파일 스트림 획득
-   */
+  // 개별 파일 스트림 획득
   public openReadStream(path: string, generation: string, options: { validation: boolean | "crc32c" }): AudioStream {
     const file = this.bucket.file(path, { generation });
 

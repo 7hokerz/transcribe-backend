@@ -8,7 +8,8 @@ export const AudioChunkRefSchema = z.object({
 
   generation: z.string()
     .trim()
-    .regex(/^\d+$/),
+    .regex(/^\d+$/)
+    .describe('스토리지 객체 generation(버전 식별자)'),
 }).strict();
 export type AudioChunkRef = z.infer<typeof AudioChunkRefSchema>;
 
