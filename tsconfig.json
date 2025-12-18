@@ -33,7 +33,8 @@
       "#repositories/*": ["services/repositories/*"],
       "#routes/*": ["routes/*"],
       "#utils/*": ["utils/*"],
-      "#queues/*": ["queues/*"]
+      "#queues/*": ["queues/*"],
+      "#types/*": ["types/*"]
     }
   },
   "include": ["src/**/*"],

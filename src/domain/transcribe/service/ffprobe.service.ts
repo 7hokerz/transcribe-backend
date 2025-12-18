@@ -1,7 +1,8 @@
 import { spawn } from "child_process";
 import type { Readable } from "stream";
 import { BadRequestError, ERROR_CODES } from "#utils/errors.js";
-import { bucket } from "#config/firebase-admin.js";
+import type GcsStorageClient from "#utils/gcs-storage.client.js";
+import type { AudioValidationResult } from "../types/audio-validation-result.js";
 
 type FfprobeMetadata = {
   streams?: Array<{
@@ -33,28 +34,29 @@ export default class FFprobeService {
   private readonly MAX_DURATION = 15 * 60 + 1;
   private readonly MAX_EXECUTION_FFPROBE = 30_000;
 
-  constructor() { }
+  constructor(private readonly storage: GcsStorageClient) { }
 
-  public async validateAudioFile(audioPath: string, idx: number, generation: string): Promise<number> {
+  public async validateAudioFile(path: string, idx: number, generation: string): Promise<AudioValidationResult> {
     let fs: Readable | null = null;
     try {
-      fs = bucket.file(audioPath, { generation }).createReadStream({ validation: false });
+      const { stream } = this.storage.openReadStream(path, generation, { validation: false });
+      fs = stream;
 
       const meta = await this.runFFprobe(fs, idx);
 
-      const info = this.extractAudioInfo(meta, idx, audioPath);
+      const info = this.extractAudioInfo(meta, idx, path);
 
-      this.validateAudioPolicy(info, idx, audioPath);
+      this.validateAudioPolicy(info, idx, path);
 
       if (process.env.NODE_ENV === "development") {
-        console.log(`청크 ${idx} 검증 완료:`, { ...info, fileName: audioPath.split('/').pop() });
+        console.log(`청크 ${idx} 검증 완료:`, { ...info, fileName: path.split('/').pop() });
       }
-      return Math.round(info.durationSec);
+      return { duration: Math.round(info.durationSec) };
     } catch (e: any) {
-      if (e && typeof e === 'object' && 'statusCode' in e && 'code' in e) throw e;
+      if (e instanceof BadRequestError) throw e;
 
       const errMsg = e?.message ?? String(e);
-      const fileName = audioPath.split('/').pop();
+      const fileName = path.split('/').pop();
 
       throw new BadRequestError({
         message: `ffprobe validation failed for chunk ${idx} (${fileName}): ${errMsg}`,
@@ -204,14 +206,14 @@ export default class FFprobeService {
   /**
    * 메타데이터에서 필요한 값만 뽑아 정규화
    */
-  private extractAudioInfo(meta: FfprobeMetadata, idx: number, audioPath: string): NormalizedAudioInfo {
+  private extractAudioInfo(meta: FfprobeMetadata, idx: number, path: string): NormalizedAudioInfo {
     const audioStream = meta.streams?.find((s) => s.codec_type === 'audio');
     if (!audioStream) {
       throw new BadRequestError({
         message: `No valid audio stream found in chunk ${idx}`,
         clientMessage: '유효한 오디오 스트림을 찾을 수 없습니다.',
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName: audioPath.split('/').pop() }
+        metadata: { idx, fileName: path.split('/').pop() }
       });
     }
 
@@ -221,7 +223,7 @@ export default class FFprobeService {
         message: `Missing codec_name in chunk ${idx}`,
         clientMessage: "오디오 코덱 정보를 확인할 수 없습니다.",
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName: audioPath.split('/').pop() }
+        metadata: { idx, fileName: path.split('/').pop() }
       });
     }
 
@@ -231,7 +233,7 @@ export default class FFprobeService {
         message: `Missing format_name in chunk ${idx}`,
         clientMessage: "파일 포맷 정보를 확인할 수 없습니다.",
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName: audioPath.split('/').pop() }
+        metadata: { idx, fileName: path.split('/').pop() }
       });
     }
 
@@ -242,7 +244,7 @@ export default class FFprobeService {
         message: `Missing/invalid duration: '${rawDuration}'`,
         clientMessage: "오디오 길이를 확인할 수 없습니다.",
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, rawDuration, fileName: audioPath.split('/').pop() },
+        metadata: { idx, rawDuration, fileName: path.split('/').pop() },
       });
     }
 
@@ -262,14 +264,14 @@ export default class FFprobeService {
   /**
    * 허용 코덱 / 포맷 / 길이 검증
    */
-  private validateAudioPolicy(info: NormalizedAudioInfo, idx: number, audioPath: string): void {
+  private validateAudioPolicy(info: NormalizedAudioInfo, idx: number, path: string): void {
     // 코덱 검증 (aac, mp3, opus 지원)
     if (!this.ALLOWED_CODECS.includes(info.codec)) {
       throw new BadRequestError({
         message: `Invalid audio codec in chunk ${idx}: '${info.codec}' (allowed: ${this.ALLOWED_CODECS.join(', ')})`,
         clientMessage: `허용되지 않는 오디오 코덱입니다: '${info.codec}'`,
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, codec: info.codec, allowedCodecs: this.ALLOWED_CODECS, fileName: audioPath.split('/').pop() }
+        metadata: { idx, codec: info.codec, allowedCodecs: this.ALLOWED_CODECS, fileName: path.split('/').pop() }
       });
     }
 
@@ -279,7 +281,7 @@ export default class FFprobeService {
         message: `Invalid file format in chunk ${idx}: '${info.formatName}' (allowed: ${this.ALLOWED_FORMATS.join(', ')})`,
         clientMessage: `허용되지 않는 파일 포맷입니다: '${info.formatName}'`,
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, format: info.formatName, allowedFormats: this.ALLOWED_FORMATS, fileName: audioPath.split('/').pop() }
+        metadata: { idx, format: info.formatName, allowedFormats: this.ALLOWED_FORMATS, fileName: path.split('/').pop() }
       });
     }
 
@@ -288,7 +290,7 @@ export default class FFprobeService {
         message: `Audio file duration exceeds limit in chunk ${idx}: ${Math.round(info.durationSec)}s`,
         clientMessage: `파일 길이가 너무 깁니다 (${Math.round(info.durationSec)}초)`,
         code: ERROR_CODES.VALIDATION.INVALID_INPUT,
-        metadata: { idx, duration: Math.round(info.durationSec), maxDuration: this.MAX_DURATION, fileName: audioPath.split('/').pop() }
+        metadata: { idx, duration: Math.round(info.durationSec), maxDuration: this.MAX_DURATION, fileName: path.split('/').pop() }
       });
     }
   }

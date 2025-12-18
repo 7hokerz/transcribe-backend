@@ -58,6 +58,7 @@
     "#repositories/*": "./dist/services/repositories/*",
     "#routes/*": "./dist/routes/*",
     "#utils/*": "./dist/utils/*",
-    "#queues/*": "./dist/queues/*"
+    "#queues/*": "./dist/queues/*",
+    "#types/*": "./dist/types/*"
   }
 }

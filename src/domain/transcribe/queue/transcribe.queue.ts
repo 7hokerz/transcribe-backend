@@ -1,10 +1,11 @@
 import PQueue from 'p-queue';
 import pRetry from 'p-retry';
-import type TranscribeService from '#services/transcribe.service.js';
+import type TranscribeService from '../service/transcribe.service.js';
 import type { JobQueue } from './queue.interface.js';
-import type { TranscriptionJob } from '#dtos/transcribe.dto.js';
+import type { TranscriptionJob } from './message/transcription.job.js';
+import type { TranscriptionSegment } from '../types/transcription-segment.js';
 
-export default class TranscribeQueue implements JobQueue<TranscriptionJob> {
+export default class TranscribeQueue implements JobQueue<TranscriptionJob, TranscriptionSegment> {
   private readonly queue: PQueue;
 
   constructor(
@@ -17,11 +18,11 @@ export default class TranscribeQueue implements JobQueue<TranscriptionJob> {
     });
   }
 
-  public async enqueue(job: TranscriptionJob): Promise<string> {
-    const { audioPath, generation, duration, transcriptionPrompt } = job;
+  public async enqueue(job: TranscriptionJob): Promise<TranscriptionSegment> {
+    const { path, generation, duration, transcriptionPrompt } = job;
 
     return await this.queue.add(() =>
-      pRetry(() => this.svc.transcribeAudio(audioPath, generation, transcriptionPrompt), {
+      pRetry(() => this.svc.transcribeAudio(path, generation, transcriptionPrompt), {
         retries: 2,
         factor: 2,
         minTimeout: 2_000,

@@ -2,7 +2,7 @@ import { adminFirestore } from "#config/firebase-admin.js";
 import * as zlib from 'zlib';
 import { promisify } from 'util';
 import { Timestamp } from "firebase-admin/firestore";
-import { TranscribeStatus } from "#dtos/transcribe.dto.js";
+import { TranscribeStatus } from "../types/transcription-status.js";
 
 const gzip = promisify(zlib.gzip);
 const COLLECTION_NAME = 'content-cache';
@@ -18,7 +18,7 @@ export default class TranscribeAudioRepository {
     try {
       await jobRef.create({
         ...metadata,
-        status: "PENDING",
+        status: TranscribeStatus.PENDING,
         updatedAt: now,
         createdAt: now,
       });

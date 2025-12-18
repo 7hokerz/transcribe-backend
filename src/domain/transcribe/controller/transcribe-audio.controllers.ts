@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { transcriptSessionSchema } from "#dtos/transcribe.dto.js"
-import type SessionQueue from "#queues/session.queue.js";
+import { TranscriptSessionSchema } from "../queue/message/transcription.session.job.js"
+import type SessionQueue from "../queue/session.queue.js";
 
 export default class TranscribeAudioController {
     constructor(
@@ -8,9 +8,9 @@ export default class TranscribeAudioController {
     ) { }
 
     public async transcribe(req: Request, res: Response): Promise<void> {
-        const validInput = transcriptSessionSchema.parse(req.body);
+        const validInput = TranscriptSessionSchema.parse(req.body);
 
-        await this.sessionQueue.enqueue(validInput);
+        this.sessionQueue.enqueue(validInput);
 
         res.status(202).json({ jobId: validInput.sessionId });
     }

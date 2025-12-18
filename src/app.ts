@@ -13,9 +13,9 @@ import { corsOptions } from '#config/cors.config.js';
 import { compressionOptions } from '#config/compression.config.js';
 import { notFoundHandler, globalErrorHandler } from '#config/error-handler.config.js';
 
-import { ApiAuthMiddleware } from 'middlewares/auth.middleware.js';
+import { ApiAuthMiddleware } from './middlewares/auth.middleware.js';
 
-import transcriptionRoutes from '#routes/transcribe-audio.route.js';
+import transcriptionRoutes from './domain/transcribe/route/transcribe-audio.route.js';
 
 class App {
   public express: express.Application;

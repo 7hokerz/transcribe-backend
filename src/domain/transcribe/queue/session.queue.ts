@@ -1,10 +1,9 @@
 import PQueue from 'p-queue';
-import { CloudTasksClient } from '@google-cloud/tasks';
-import type SessionService from '#services/session.service.js';
+import type SessionService from '../service/session.service.js';
 import type { JobQueue } from './queue.interface.js';
-import type { transcriptSession } from '#dtos/transcribe.dto.js';
+import type { TranscriptSession } from './message/transcription.session.job.js';
 
-export default class SessionQueue implements JobQueue<transcriptSession> {
+export default class SessionQueue implements JobQueue<TranscriptSession, void> {
   private readonly queue: PQueue;
 
   constructor(
@@ -17,7 +16,7 @@ export default class SessionQueue implements JobQueue<transcriptSession> {
     });
   }
 
-  public async enqueue(input: transcriptSession): Promise<void> {
+  public async enqueue(input: TranscriptSession): Promise<void> {
     this.queue.add(() => this.svc.process(input))
       .catch(e => {
         console.error(`[Queue Job ${input.sessionId} failed before entering worker]`, e);

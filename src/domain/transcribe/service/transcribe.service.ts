@@ -1,8 +1,9 @@
 import FormData from 'form-data';
 import type { Readable } from "stream";
 import { Pool } from "undici";
-import { bucket } from '#config/firebase-admin.js';
 import { BadGatewayError, ERROR_CODES } from '#utils/errors.js';
+import type GcsStorageClient from '#utils/gcs-storage.client.js';
+import type { TranscriptionSegment } from '../types/transcription-segment.js';
 
 export const AudioPool = new Pool('https://api.openai.com', {
   connections: 20,
@@ -25,19 +26,18 @@ export default class TranscribeService {
     EN: "en",
   } as const;
 
-  constructor() { }
+  constructor(private readonly storage: GcsStorageClient) { }
 
-  public async transcribeAudio(audioPath: string, generation: string, transcriptionPrompt?: string): Promise<string> {
+  public async transcribeAudio(path: string, generation: string, transcriptionPrompt?: string): Promise<TranscriptionSegment> {
     let fs: Readable | null = null;
     try {
-      const audio = bucket.file(audioPath, { generation });
-
-      fs = audio.createReadStream({ validation: "crc32c" });
+      const { stream, sizeBytes } = this.storage.openReadStream(path, generation, { validation: "crc32c" });
+      fs = stream;
 
       const form = new FormData();
       form.append("file", fs, {
-        filename: audioPath.split("/").pop()!,
-        knownLength: Number(audio.metadata.size),
+        filename: path.split("/").pop()!,
+        ...(Number.isFinite(sizeBytes ?? NaN) ? { knownLength: sizeBytes! } : {}),
       });
       form.append("model", this.MODELS.GPT_4o_mini_transcribe);
       form.append("language", this.LANGUAGES.KO);
@@ -55,7 +55,7 @@ export default class TranscribeService {
       });
 
       if (statusCode === 200) {
-        return await body.text();
+        return { text: await body.text() };
       }
 
       let errorBody;
@@ -66,21 +66,19 @@ export default class TranscribeService {
       }
 
       throw new BadGatewayError({
-        message: `OpenAI Whisper API returned status ${statusCode} for file ${audioPath.split("/").pop()}`,
+        message: `OpenAI Whisper API returned status ${statusCode} for file ${path.split("/").pop()}`,
         clientMessage: '음성 변환 API 호출에 실패했습니다.',
         code: ERROR_CODES.EXTERNAL.AI_MODEL_FAILED,
-        metadata: { statusCode, fileName: audioPath.split("/").pop(), body: errorBody }
+        metadata: { statusCode, fileName: path.split("/").pop(), body: errorBody }
       });
     } catch (e: any) {
-      if (e && typeof e === 'object' && 'statusCode' in e && 'code' in e) {
-        throw e;
-      }
-
+      if (e instanceof BadGatewayError) throw e;
+      
       throw new BadGatewayError({
-        message: `Failed to transcribe ${audioPath.split("/").pop()}: ${e.message ?? e}`,
+        message: `Failed to transcribe ${path.split("/").pop()}: ${e.message ?? e}`,
         clientMessage: '음성 변환에 실패했습니다.',
         code: ERROR_CODES.EXTERNAL.AI_MODEL_FAILED,
-        metadata: { fileName: audioPath.split("/").pop(), error: e.message ?? e }
+        metadata: { fileName: path.split("/").pop(), error: e.message ?? e }
       });
     } finally {
       // 스트림 정리 (메모리 누수 방지)

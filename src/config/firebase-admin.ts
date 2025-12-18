@@ -3,7 +3,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, cert, getApps, getApp } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 
-export type GCSFile = ReturnType<ReturnType<typeof adminStorage.bucket>["file"]>;
+export type GCSBucket = ReturnType<typeof adminStorage.bucket>;
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
 
