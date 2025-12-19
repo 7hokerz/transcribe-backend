@@ -8,7 +8,7 @@ export default class FFprobeQueue implements JobQueue<FFprobeJob, AudioValidatio
   private readonly queue: PQueue;
 
   constructor(
-    private readonly svc: FFprobeService,
+    private readonly ffprobeSvc: FFprobeService,
   ) {
     this.queue = new PQueue({
       concurrency: 2,     // 동시성
@@ -21,7 +21,7 @@ export default class FFprobeQueue implements JobQueue<FFprobeJob, AudioValidatio
     const { path, index, generation } = job;
 
     return await this.queue.add(
-      () => this.svc.validateAudioFile(path, index, generation)
+      () => this.ffprobeSvc.validateAudioFile(path, index, generation)
     );
   }
 }

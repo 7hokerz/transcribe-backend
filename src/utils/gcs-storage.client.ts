@@ -12,7 +12,11 @@ export default class GcsStorageClient {
 
     return allObjects
       .filter(f => !f.name.endsWith('/'))
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => {
+        const ai = Number(a.metadata?.metadata?.['chunk-index'] ?? Infinity);
+        const bi = Number(b.metadata?.metadata?.['chunk-index'] ?? Infinity);
+        return ai !== bi ? ai - bi : a.name.localeCompare(b.name);
+      })
       .map(f => ({
         name: f.name,
         generation: String(f.metadata?.generation ?? ""),

@@ -1,13 +1,13 @@
 import PQueue from 'p-queue';
 import type SessionService from '../service/session.service.js';
 import type { JobQueue } from './queue.interface.js';
-import type { TranscriptSession } from './message/transcription.session.job.js';
+import type { TranscriptSessionJob } from './message/transcription.session.job.js';
 
-export default class SessionQueue implements JobQueue<TranscriptSession, void> {
+export default class SessionQueue implements JobQueue<TranscriptSessionJob, void> {
   private readonly queue: PQueue;
 
   constructor(
-    private readonly svc: SessionService,
+    private readonly sessionSvc: SessionService,
   ) {
     this.queue = new PQueue({
       concurrency: 10,    // 동시성
@@ -16,8 +16,8 @@ export default class SessionQueue implements JobQueue<TranscriptSession, void> {
     });
   }
 
-  public async enqueue(input: TranscriptSession): Promise<void> {
-    this.queue.add(() => this.svc.process(input))
+  public async enqueue(input: TranscriptSessionJob): Promise<void> {
+    this.queue.add(() => this.sessionSvc.process(input))
       .catch(e => {
         console.error(`[Queue Job ${input.sessionId} failed before entering worker]`, e);
       });

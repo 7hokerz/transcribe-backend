@@ -30,11 +30,13 @@
       "#config/*": ["config/*"],
       "#controllers/*": ["controllers/*"],
       "#services/*": ["services/*"],
-      "#repositories/*": ["services/repositories/*"],
+      "#strategies/*": ["strategies/*"],
+      "#repositories/*": ["repositories/*"],
       "#routes/*": ["routes/*"],
       "#utils/*": ["utils/*"],
       "#queues/*": ["queues/*"],
-      "#types/*": ["types/*"]
+      "#types/*": ["types/*"],
+      "#domain/*": ["domain/*"]
     }
   },
   "include": ["src/**/*"],

@@ -71,9 +71,7 @@ export default class FFprobeService {
     }
   }
 
-  /**
-   * ffprobe 실행 + stdout 수집 + JSON 파싱
-   */
+  // ffprobe 실행 + stdout 수집 + JSON 파싱
   private async runFFprobe(stream: Readable, idx: number): Promise<FfprobeMetadata> {
     return new Promise((resolve, reject) => {
       let isSettled = false;
@@ -203,9 +201,7 @@ export default class FFprobeService {
     });
   }
 
-  /**
-   * 메타데이터에서 필요한 값만 뽑아 정규화
-   */
+  // 메타데이터에서 필요한 값만 뽑아 정규화
   private extractAudioInfo(meta: FfprobeMetadata, idx: number, path: string): NormalizedAudioInfo {
     const audioStream = meta.streams?.find((s) => s.codec_type === 'audio');
     if (!audioStream) {
@@ -261,9 +257,7 @@ export default class FFprobeService {
     };
   }
 
-  /**
-   * 허용 코덱 / 포맷 / 길이 검증
-   */
+  // 허용코덱/포맷/길이 검증
   private validateAudioPolicy(info: NormalizedAudioInfo, idx: number, path: string): void {
     // 코덱 검증 (aac, mp3, opus 지원)
     if (!this.ALLOWED_CODECS.includes(info.codec)) {

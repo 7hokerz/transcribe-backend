@@ -9,7 +9,7 @@ export default class TranscribeQueue implements JobQueue<TranscriptionJob, Trans
   private readonly queue: PQueue;
 
   constructor(
-    private readonly svc: TranscribeService,
+    private readonly transcribeSvc: TranscribeService,
   ) {
     this.queue = new PQueue({
       concurrency: 10,    // 동시성
@@ -22,7 +22,7 @@ export default class TranscribeQueue implements JobQueue<TranscriptionJob, Trans
     const { path, generation, duration, transcriptionPrompt } = job;
 
     return await this.queue.add(() =>
-      pRetry(() => this.svc.transcribeAudio(path, generation, transcriptionPrompt), {
+      pRetry(() => this.transcribeSvc.transcribeAudio(path, generation, transcriptionPrompt), {
         retries: 2,
         factor: 2,
         minTimeout: 2_000,

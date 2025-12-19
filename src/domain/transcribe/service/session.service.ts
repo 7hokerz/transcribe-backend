@@ -4,14 +4,15 @@ import { promisify } from 'util';
 import { Timestamp } from "firebase-admin/firestore";
 import { adminFirestore } from "#config/firebase-admin.js";
 import type GcsStorageClient from "#utils/gcs-storage.client.js";
-import type { TranscriptSession } from "../queue/message/transcription.session.job.js";
+import type { TranscriptSessionJob } from "../queue/message/transcription.session.job.js";
 import type FFprobeQueue from "../queue/ffprobe.queue.js";
 import type TranscribeQueue from "../queue/transcribe.queue.js";
-import type TranscribeAudioRepository from "../repository/transcribe-audio.repository.js";
+import type TranscriptionJobRepository from "../repository/transcription-job.repository.js";
 import type TranscriptionContentRepository from "../repository/transcription-content.repository.js";
 import type { TranscriptionSegment } from "../types/transcription-segment.js";
-import { TranscribeStatus, type segmentFailure } from "../entity/Transcription.job.js";
+import { TranscribeStatus, type SegmentFailure } from "../entity/Transcription.job.js";
 import type { TranscriptionContentDoc, TranscriptionMetaDoc } from "../entity/Transcription.content.js";
+import type { AudioChunkRef } from '#types/storage.types.js';
 
 const gzip = promisify(zlib.gzip);
 
@@ -20,48 +21,24 @@ export default class SessionService {
   constructor(
     private readonly ffprobeQueue: FFprobeQueue,
     private readonly transcribeQueue: TranscribeQueue,
-    private readonly jobRepo: TranscribeAudioRepository,
+    private readonly jobRepo: TranscriptionJobRepository,
     private readonly contentRepo: TranscriptionContentRepository,
     private readonly storage: GcsStorageClient,
   ) { }
 
-  public async process(input: TranscriptSession): Promise<void> {
+  public async process(input: TranscriptSessionJob): Promise<void> {
+    const failures: SegmentFailure[] = [];
     const { userId, sessionId, transcriptionPrompt } = input;
-    const failures: segmentFailure[] = [];
-    const prefix = `audios/${input.userId}/${input.sessionId}/`;
+    const prefix = `audios/${userId}/${sessionId}/`;
 
     try {
-      const processing = await this.jobRepo.markJobPending(sessionId, {
-        sessionId,
-        userId,
-        status: TranscribeStatus.PENDING,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
+      const processing = await this.ensurePending(sessionId, userId);
       if (processing) return;
 
       const audios = await this.storage.getFiles(prefix, { maxResults: 100 });
 
-      const results = await Promise.allSettled(
-        audios.map(async (audio, index) => {
-          const { duration } = await this.ffprobeQueue.enqueue({
-            sessionId,
-            path: audio.name,
-            generation: audio.generation,
-            index,
-          });
+      const { textSegments, errors } = await this.runTranscription(audios, sessionId, transcriptionPrompt);
 
-          return this.transcribeQueue.enqueue({
-            sessionId,
-            path: audio.name,
-            generation: audio.generation,
-            duration,
-            transcriptionPrompt
-          });
-        })
-      );
-
-      const { textSegments, errors } = this.aggregateResults(results);
       failures.push(...errors);
 
       if (textSegments.length === 0) {
@@ -70,12 +47,12 @@ export default class SessionService {
           updatedAt: Timestamp.now(),
           error: {
             message: '변환 완료된 데이터가 없습니다.',
-            segmentFailures: failures,
-          }
+          },
+          segmentFailures: failures,
         });
       }
 
-      await this.commitSuccess(sessionId, textSegments.join(' '));
+      await this.commitSuccess(sessionId, textSegments.join(' '), failures);
 
       return;
     } catch (e: any) {
@@ -86,17 +63,50 @@ export default class SessionService {
       await this.jobRepo.markJobFail(sessionId, {
         status: TranscribeStatus.FAILED,
         updatedAt: Timestamp.now(),
-        error: {
-          ...errorInfo,
-          segmentFailures: failures,
-        }
+        error: errorInfo,
+        segmentFailures: failures,
       });
     }
   }
 
+  private async ensurePending(sessionId: string, userId: string) {
+    return this.jobRepo.markJobPending(sessionId, {
+      sessionId,
+      userId,
+      status: TranscribeStatus.PENDING,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+  }
+
+  // ffprobe 검증 + 전사 작업
+  private async runTranscription(audios: AudioChunkRef[], sessionId: string, transcriptionPrompt?: string) {
+    const results = await Promise.allSettled(
+      audios.map(async (audio, index) => {
+        const { duration } = await this.ffprobeQueue.enqueue({
+          sessionId,
+          path: audio.name,
+          generation: audio.generation,
+          index,
+        });
+
+        return this.transcribeQueue.enqueue({
+          sessionId,
+          path: audio.name,
+          generation: audio.generation,
+          duration,
+          transcriptionPrompt
+        });
+      })
+    );
+
+    return this.aggregateResults(results);
+  }
+
+  // 전사 성공/실패 취합
   private aggregateResults(results: PromiseSettledResult<TranscriptionSegment>[]) {
     const textSegments: string[] = [];
-    const errors: segmentFailure[] = [];
+    const errors: SegmentFailure[] = [];
 
     results.forEach((r, idx) => {
       if (r.status === 'fulfilled') {
@@ -116,7 +126,7 @@ export default class SessionService {
     return { textSegments, errors };
   }
 
-  private async commitSuccess(sessionId: string, content: string) {
+  private async commitSuccess(sessionId: string, content: string, failures: SegmentFailure[]) {
     const batch = adminFirestore.batch();
     const now = Timestamp.now();
 
@@ -124,6 +134,7 @@ export default class SessionService {
       status: TranscribeStatus.DONE,
       updatedAt: now,
       expiresAt: Timestamp.fromMillis(now.toMillis() + this.AUDIO_CACHE_TTL),
+      segmentFailures: failures
     });
 
     await this.save(batch, sessionId, content, now);

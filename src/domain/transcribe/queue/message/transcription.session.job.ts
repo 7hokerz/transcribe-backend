@@ -15,4 +15,4 @@ export const TranscriptSessionSchema = z.object({
     .optional()
     .describe('전사 품질 보정을 위한 선택 프롬프트'),
 });
-export type TranscriptSession = z.infer<typeof TranscriptSessionSchema>;
+export type TranscriptSessionJob = z.infer<typeof TranscriptSessionSchema>;

@@ -2,7 +2,7 @@
 import { adminFirestore } from "#config/firebase-admin.js";
 import type { TranscriptionJobDoc } from "../entity/Transcription.job.js";
 
-export default class TranscribeAudioRepository {
+export default class TranscriptionJobRepository {
   private readonly JOB_COLLECTION = 'transcribe-audio' as const;
 
   public async markJobPending(jobId: string, jobPayload: TranscriptionJobDoc): Promise<boolean> {

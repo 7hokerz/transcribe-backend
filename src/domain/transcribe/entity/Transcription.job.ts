@@ -6,7 +6,7 @@ export enum TranscribeStatus {
   FAILED = 'failed',
 }
 
-export interface segmentFailure {
+export interface SegmentFailure {
   idx: number;
   reason?: {
     message: string;
@@ -25,8 +25,7 @@ export interface TranscriptionJobDoc {
   error?: {
     message: string;
     stack?: string | undefined;
-    segmentFailures?: Array<segmentFailure>;
   }
+  
+  segmentFailures?: Array<SegmentFailure>;
 }
-
-

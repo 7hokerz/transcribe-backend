@@ -16,6 +16,7 @@
   "type": "module",
   "dependencies": {
     "@google-cloud/tasks": "^6.2.1",
+    "awilix": "^12.0.5",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
@@ -24,7 +25,7 @@
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
     "js-yaml": "^4.1.1",
-    "openai": "^6.14.0",
+    "openai": "^6.15.0",
     "p-queue": "^9.0.1",
     "p-retry": "^7.1.1",
     "swagger-ui-express": "^5.0.1",
@@ -59,6 +60,7 @@
     "#routes/*": "./dist/routes/*",
     "#utils/*": "./dist/utils/*",
     "#queues/*": "./dist/queues/*",
-    "#types/*": "./dist/types/*"
+    "#types/*": "./dist/types/*",
+    "#domain/*": "./dist/domain/*"
   }
 }
