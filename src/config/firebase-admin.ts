@@ -16,6 +16,7 @@ const adminApp = !getApps().length
   : getApp();
 
 export const adminFirestore = getFirestore(adminApp, "quizgen-db");
+adminFirestore.settings({ ignoreUndefinedProperties: true });
 
 export const adminDatabase = getDatabase(adminApp);
 export const adminStorage = getStorage(adminApp);

@@ -1,3 +1,9 @@
+import { registerInfra } from '#config/di.js';
+import { registerTranscription } from '#domain/transcribe/container/transcription.register.js';
+
+registerInfra();
+registerTranscription();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,16 +20,21 @@ import { compressionOptions } from '#config/compression.config.js';
 import { notFoundHandler, globalErrorHandler } from '#config/error-handler.config.js';
 
 import { ApiAuthMiddleware } from './middlewares/auth.middleware.js';
+import { CloudTasksMiddleware } from 'middlewares/cloud-tasks.middleware.js';
 
-import transcriptionRoutes from './domain/transcribe/route/transcribe-audio.route.js';
+import transcriptionRequestRoutes from '#domain/transcribe/route/transcribe-audio.route.js';
+import transcriptionTaskRoutes from '#domain/transcribe/route/transcribe-task.route.js';
+import { container } from '#config/container.js';
 
 class App {
   public express: express.Application;
   private readonly authMiddleware: ApiAuthMiddleware;
+  private readonly cloudTasksMiddleware: CloudTasksMiddleware;
 
   constructor() {
     this.express = express();
     this.authMiddleware = new ApiAuthMiddleware();
+    this.cloudTasksMiddleware = new CloudTasksMiddleware();
     this.initializeMiddlewares();
     this.initializeRoutes();
     this.initializeErrorHandling();
@@ -54,7 +65,12 @@ class App {
 
     this.express.use('/api', this.authMiddleware.authenticate());
 
-    this.express.use('/api/v1/transcription', transcriptionRoutes);
+    this.express.use('/api/v1/transcription', transcriptionRequestRoutes(container));
+
+    // 내부 호출 전용 (Cloud Tasks 등)
+    this.express.use('/internal/tasks', this.cloudTasksMiddleware.authenticate());
+
+    this.express.use('/internal/tasks/transcribe', transcriptionTaskRoutes(container));
 
     if (process.env.NODE_ENV === "development") {
       const specPath = path.join(process.cwd(), "swagger.yml");
@@ -69,7 +85,6 @@ class App {
       this.express.use("/docs", swaggerUi.serve, swaggerUi.setup(spec as any));
     }
   }
-
 
   private initializeErrorHandling(): void {
     // 404 핸들러

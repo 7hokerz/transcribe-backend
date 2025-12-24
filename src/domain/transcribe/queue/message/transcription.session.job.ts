@@ -6,7 +6,7 @@ export const TranscriptSessionSchema = z.object({
     .describe('전사 세션 식별자(UUID)'),
 
   userId: z.string()
-    .min(1, 'userId가 필요합니다.')
+    .min(1)
     .describe('요청 사용자 식별자'),
 
   transcriptionPrompt: z.string()

@@ -112,8 +112,6 @@ RUN /usr/local/bin/ffprobe -protocols | grep -E "(pipe|fd)" || echo "Checking av
 # Copy production dependencies and the built application from the app-builder stage
 COPY --from=app-builder --chown=node:node /app/package*.json ./
 COPY --from=app-builder --chown=node:node /app/node_modules ./node_modules
-COPY --from=app-builder --chown=node:node /app/public ./public
-COPY --from=app-builder --chown=node:node /app/prompts ./prompts
 COPY --from=app-builder --chown=node:node /app/dist ./dist
 
 USER node

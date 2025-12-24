@@ -25,12 +25,24 @@ export default class GcsStorageClient {
   }
 
   // 개별 파일 스트림 획득
-  public openReadStream(path: string, generation: string, options: { validation: boolean | "crc32c" }): AudioStream {
+  public openReadStream(
+    path: string,
+    generation: string,
+    options: {
+      start?: number,
+      end?: number,
+      validation: boolean | "crc32c",
+    }
+  ): AudioStream {
     const file = this.bucket.file(path, { generation });
 
     const sizeBytes = file.metadata?.size ? Number(file.metadata.size) : undefined;
 
-    const stream = file.createReadStream({ validation: options.validation });
+    const stream = file.createReadStream({
+      ...(Number.isFinite(options?.start) ? { start: options.start } : {}),
+      ...(Number.isFinite(options?.end) ? { end: options.end } : {}),
+      validation: options.validation
+    });
 
     return { stream, sizeBytes };
   }

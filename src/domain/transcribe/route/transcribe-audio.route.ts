@@ -1,13 +1,10 @@
 import { Router } from 'express';
-import { container } from '#config/container.js';
-import { registerTranscription } from '../container/transcription.register.js';
-import TranscribeAudioController from '../controller/transcribe-audio.controllers.js';
+import type TranscribeAudioController from '../controller/transcribe-audio.controllers.js';
+import type { AwilixContainer } from 'awilix';
 
-registerTranscription();
-const controller = container.resolve<TranscribeAudioController>("transcribeAudioController");
-
-const router = Router();
-
-router.post('/', controller.transcribe.bind(controller));
-
-export default router;
+export default function createTranscribeAudioRoutes(container: AwilixContainer) {
+  const router = Router();
+  const controller = container.resolve<TranscribeAudioController>("transcribeAudioController");
+  router.post('/', controller.requestTranscription.bind(controller));
+  return router;
+}

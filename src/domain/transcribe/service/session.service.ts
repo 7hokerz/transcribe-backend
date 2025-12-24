@@ -13,6 +13,7 @@ import type { TranscriptionSegment } from "../types/transcription-segment.js";
 import { TranscribeStatus, type SegmentFailure } from "../entity/Transcription.job.js";
 import type { TranscriptionContentDoc, TranscriptionMetaDoc } from "../entity/Transcription.content.js";
 import type { AudioChunkRef } from '#types/storage.types.js';
+import { AppError } from '#utils/errors.js';
 
 const gzip = promisify(zlib.gzip);
 
@@ -26,14 +27,15 @@ export default class SessionService {
     private readonly storage: GcsStorageClient,
   ) { }
 
-  public async process(input: TranscriptSessionJob): Promise<void> {
+  public async process(input: TranscriptSessionJob) {
     const failures: SegmentFailure[] = [];
     const { userId, sessionId, transcriptionPrompt } = input;
     const prefix = `audios/${userId}/${sessionId}/`;
 
     try {
-      const processing = await this.ensurePending(sessionId, userId);
-      if (processing) return;
+      // CREATED -> RUNNING
+      const isValid = await this.ensureRunning(sessionId);
+      if (!isValid) return;
 
       const audios = await this.storage.getFiles(prefix, { maxResults: 100 });
 
@@ -41,40 +43,44 @@ export default class SessionService {
 
       failures.push(...errors);
 
+      // RUNNING -> FAIL
       if (textSegments.length === 0) {
-        return this.jobRepo.markJobFail(sessionId, {
+        return await this.jobRepo.markJobFail(sessionId, {
           status: TranscribeStatus.FAILED,
           updatedAt: Timestamp.now(),
-          error: {
-            message: '변환 완료된 데이터가 없습니다.',
-          },
+          error: { message: '변환 완료된 데이터가 없습니다.' },
           segmentFailures: failures,
         });
       }
 
-      await this.commitSuccess(sessionId, textSegments.join(' '), failures);
-
-      return;
+      // RUNNING -> DONE
+      return await this.commitSuccess(sessionId, textSegments.join(' '), failures);
     } catch (e: any) {
+      // Retryable Error -> Cloud Tasks 재시도
+      if (e instanceof AppError && [502, 503, 504].includes(e.statusCode)) {
+        throw e;
+      }
+
       const errorInfo = e instanceof Error
         ? { message: e.message, stack: e.stack }
         : { message: String(e) };
 
+      // RUNNING -> FAIL
       await this.jobRepo.markJobFail(sessionId, {
         status: TranscribeStatus.FAILED,
         updatedAt: Timestamp.now(),
         error: errorInfo,
         segmentFailures: failures,
-      });
+      }).catch(dbErr => console.error("Failed to mark job fail:", dbErr));
+
+      return;
     }
   }
 
-  private async ensurePending(sessionId: string, userId: string) {
-    return this.jobRepo.markJobPending(sessionId, {
-      sessionId,
-      userId,
-      status: TranscribeStatus.PENDING,
-      createdAt: Timestamp.now(),
+  // CREATED -> RUNNING
+  private async ensureRunning(sessionId: string) {
+    return this.jobRepo.markJobRunningIfAllowed(sessionId, {
+      status: TranscribeStatus.RUNNING,
       updatedAt: Timestamp.now(),
     });
   }
@@ -126,6 +132,7 @@ export default class SessionService {
     return { textSegments, errors };
   }
 
+  // RUNNING -> DONE
   private async commitSuccess(sessionId: string, content: string, failures: SegmentFailure[]) {
     const batch = adminFirestore.batch();
     const now = Timestamp.now();
@@ -139,9 +146,10 @@ export default class SessionService {
 
     await this.save(batch, sessionId, content, now);
 
-    await batch.commit();
+    await this.jobRepo.commitBatch(batch);
   }
 
+  // 결과물 저장
   private async save(batch: FirebaseFirestore.WriteBatch, jobId: string, content: string, now: Timestamp) {
     const snippet = content.substring(0, 1000);
     const totalLength = content.length;
@@ -173,5 +181,4 @@ export default class SessionService {
 
     this.contentRepo.saveMeta(batch, jobId, metaDoc);
   }
-
 }

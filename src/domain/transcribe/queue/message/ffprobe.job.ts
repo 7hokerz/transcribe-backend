@@ -7,7 +7,7 @@ export const FFprobeJobSchema = z.object({
 
   path: z.string()
     .trim()
-    .min(1, "path가 필요합니다.")
+    .min(1)
     .describe('스토리지 객체 경로'),
 
   generation: z.string()

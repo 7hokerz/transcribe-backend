@@ -6,7 +6,7 @@ export const TranscriptionJobSchema = z.object({
     .describe('전사 세션 식별자(UUID)'),
 
   path: z.string()
-    .min(1, 'path가 필요합니다.')
+    .min(1)
     .describe('스토리지 객체 경로'),
 
   generation: z.string()
