@@ -1,7 +1,7 @@
 # -------------------------------------------------
 # Stage 1: Build Node.js application
 # -------------------------------------------------
-FROM node:22.21.1-slim AS app-builder
+FROM node:24.12.0-slim AS app-builder
 WORKDIR /app
 
 # Install dependencies first to leverage Docker layer caching
@@ -93,7 +93,7 @@ RUN echo "test" | ./ffprobe -v error -f lavfi -i "anullsrc=duration=1:sample_rat
 # -------------------------------------------------
 # Stage 3: Final runtime image
 # -------------------------------------------------
-FROM node:22.21.1-slim
+FROM node:24.12.0-slim
 
 ENV NODE_ENV=production
 
