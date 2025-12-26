@@ -1,27 +1,35 @@
 
 import { adminFirestore } from "#config/firebase-admin.js";
-import type { TranscriptionContentDoc, TranscriptionMetaDoc } from "../entity/Transcription.content.js";
+import { TranscriptionMetaConverter, TranscriptionResultConverter, type TranscriptionContentDoc, type TranscriptionMetaDoc } from "../entity/Transcription.content.js";
 
 export default class TranscriptionContentRepository {
   private readonly COLLECTION_NAME = 'content-cache' as const;
-
-  public saveContent(
-    batch: FirebaseFirestore.WriteBatch,
-    jobId: string,
-    contentPayload: TranscriptionContentDoc,
-  ) {
-    const contentRef = adminFirestore.collection(this.COLLECTION_NAME).doc(`${jobId}:content`);
-
-    batch.set(contentRef, contentPayload);
-  }
+  private readonly contentCollection = adminFirestore
+    .collection(this.COLLECTION_NAME);
 
   public saveMeta(
     batch: FirebaseFirestore.WriteBatch,
     jobId: string,
     metaPayload: TranscriptionMetaDoc,
   ) {
-    const metaRef = adminFirestore.collection(this.COLLECTION_NAME).doc(`${jobId}:meta`);
+    const metaRef = this.contentCollection
+      .withConverter(TranscriptionMetaConverter)
+      .doc(jobId);
 
     batch.set(metaRef, metaPayload);
+  }
+
+  public saveContent(
+    batch: FirebaseFirestore.WriteBatch,
+    jobId: string,
+    contentPayload: TranscriptionContentDoc,
+  ) {
+    const contentRef = this.contentCollection
+      .doc(jobId)
+      .collection('cachedContent')
+      .withConverter(TranscriptionResultConverter)
+      .doc('default');
+
+    batch.set(contentRef, contentPayload);
   }
 }

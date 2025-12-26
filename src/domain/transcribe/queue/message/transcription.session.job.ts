@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
 export const TranscriptSessionSchema = z.object({
-  sessionId: z.string()
-    .uuid()
+  sessionId: z.uuid()
     .describe('전사 세션 식별자(UUID)'),
 
   userId: z.string()

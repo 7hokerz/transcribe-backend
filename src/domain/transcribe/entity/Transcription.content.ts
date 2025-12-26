@@ -1,18 +1,49 @@
-
-import { Timestamp } from "firebase-admin/firestore";
+import type { DocumentData, QueryDocumentSnapshot, Timestamp } from "firebase-admin/firestore";
 
 export interface TranscriptionMetaDoc {
-  data: {
-    snippet: string;
-    totalLength: number;
-    content?: string;
-    contentKey?: string;
-  }
+  id?: string;
+  snippet: string;
+  totalLength: number;
   expiresAt: Timestamp;
 }
 
 export interface TranscriptionContentDoc {
-  data: Uint8Array<ArrayBuffer>;
+  id?: string;
+  data: Uint8Array<ArrayBuffer> | string;
   expiresAt: Timestamp;
 }
+
+export const TranscriptionResultConverter = {
+  toFirestore(model: TranscriptionContentDoc): DocumentData {
+    const { id, ...rest } = model;
+    return rest;
+  },
+
+  fromFirestore(snapshot: QueryDocumentSnapshot): TranscriptionContentDoc {
+    const data = snapshot.data();
+    return {
+      id: snapshot.id,
+      data: data.data,
+      expiresAt: data.expiresAt,
+    }
+  }
+}
+
+export const TranscriptionMetaConverter = {
+  toFirestore(model: TranscriptionMetaDoc): DocumentData {
+    const { id, ...rest } = model;
+    return rest;
+  },
+
+  fromFirestore(snapshot: QueryDocumentSnapshot): TranscriptionMetaDoc {
+    const data = snapshot.data();
+    return {
+      id: snapshot.id,
+      snippet: data.snippet,
+      totalLength: data.totalLength,
+      expiresAt: data.expiresAt,
+    }
+  }
+}
+
 

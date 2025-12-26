@@ -11,7 +11,6 @@ import type TranscriptionJobRepository from "../repository/transcription-job.rep
 import type TranscriptionContentRepository from "../repository/transcription-content.repository.js";
 import type { TranscriptionSegment } from "../types/transcription-segment.js";
 import { TranscribeStatus, type SegmentFailure } from "../entity/Transcription.job.js";
-import type { TranscriptionContentDoc, TranscriptionMetaDoc } from "../entity/Transcription.content.js";
 import type { AudioChunkRef } from '#types/storage.types.js';
 import { AppError } from '#utils/errors.js';
 
@@ -153,32 +152,26 @@ export default class SessionService {
   private async save(batch: FirebaseFirestore.WriteBatch, jobId: string, content: string, now: Timestamp) {
     const snippet = content.substring(0, 1000);
     const totalLength = content.length;
-
     const expiresAt = Timestamp.fromMillis(now.toMillis() + this.AUDIO_CACHE_TTL);
 
-    let metaDoc: TranscriptionMetaDoc;
-    let contentDoc: TranscriptionContentDoc | null = null;
+    this.contentRepo.saveMeta(batch, jobId, {
+      snippet,
+      totalLength,
+      expiresAt
+    });
 
     if (content.length > 10 * 1024) {
       const compressedContent = await gzip(content);
 
-      contentDoc = {
+      this.contentRepo.saveContent(batch, jobId, {
         data: new Uint8Array(compressedContent),
-        expiresAt
-      }
-      this.contentRepo.saveContent(batch, jobId, contentDoc);
-
-      metaDoc = {
-        data: { snippet, totalLength, contentKey: `${jobId}:content` },
-        expiresAt
-      }
+        expiresAt,
+      });
     } else {
-      metaDoc = {
-        data: { snippet, totalLength, content },
-        expiresAt
-      }
+      this.contentRepo.saveContent(batch, jobId, {
+        data: content,
+        expiresAt,
+      });
     }
-
-    this.contentRepo.saveMeta(batch, jobId, metaDoc);
   }
 }

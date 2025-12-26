@@ -31,13 +31,13 @@ export const notFoundHandler = (req: Request, res: Response) => {
  * Zod 에러를 ValidationError로 변환
  */
 const handleZodError = (error: z.ZodError): ValidationError => {
-  const details = error.errors.map(err => ({
-    field: err.path.join('.'),
-    message: err.message,
+  const details = error.issues.map(e => ({
+    field: e.path.join('.'),
+    message: e.message,
   }));
 
   return new ValidationError({
-    message: `Validation failed: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
+    message: `Validation failed: ${error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
     clientMessage: '입력값이 유효하지 않습니다.',
     code: ERROR_CODES.VALIDATION.INVALID_INPUT,
     details,
