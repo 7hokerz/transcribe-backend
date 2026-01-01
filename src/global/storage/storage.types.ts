@@ -1,19 +1,12 @@
-import { z } from 'zod';
 import type { Readable } from 'stream';
 
-export const FileReferenceSchema = z.object({
-  name: z.string()
-    .trim()
-    .min(1)
-    .describe('스토리지 객체 이름'),
+export interface FileReference {
+  /** 스토리지 객체 이름 */
+  name: string;
 
-  generation: z.string()
-    .trim()
-    .regex(/^\d+$/)
-    .describe('스토리지 객체 generation(버전 식별자)'),
-}).strict();
-
-export type FileReference = z.infer<typeof FileReferenceSchema>;
+  /** 스토리지 객체 generation(버전 식별자) */
+  generation: string;
+}
 
 export class DisposableStream implements Disposable {
   constructor(

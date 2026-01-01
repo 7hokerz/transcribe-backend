@@ -5,10 +5,12 @@ export const StartTranscriptionRequestSchema = z.object({
     .describe('전사 세션 식별자(UUID)'),
 
   userId: z.string()
+    .trim()
     .min(1)
     .describe('요청 사용자 식별자'),
 
   transcriptionPrompt: z.string()
+    .trim()
     .max(220)
     .optional()
     .describe('전사 품질 보정을 위한 선택 프롬프트'),

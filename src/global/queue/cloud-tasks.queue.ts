@@ -1,5 +1,5 @@
 import { CloudTasksClient, protos } from "@google-cloud/tasks";
-import type { CloudTasksConfig } from "#global/config/google-cloud.config.js";
+import type { CloudTasksConfig } from "#global/config/cloud-tasks.config.js";
 import { mapToInfrastructureError } from "#global/exception/error-mapper.js";
 
 export default class CloudTasksQueue {

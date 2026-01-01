@@ -76,7 +76,7 @@ export default class SessionService {
     }
   }
 
-  // CREATED -> RUNNING
+  /** CREATED -> RUNNING */
   private async ensureRunning(sessionId: string) {
     return this.jobRepo.markJobRunningIfAllowed(sessionId, {
       status: TranscribeStatus.RUNNING,
@@ -84,7 +84,7 @@ export default class SessionService {
     });
   }
 
-  // ffprobe 검증 + 전사 작업
+  /** ffprobe 검증 + 전사 작업 */
   private async runTranscription(audios: FileReference[], sessionId: string, transcriptionPrompt?: string) {
     const results = await Promise.allSettled(
       audios.map(async (audio, index) => {
@@ -100,7 +100,7 @@ export default class SessionService {
           path: audio.name,
           generation: audio.generation,
           duration,
-          transcriptionPrompt
+          ...(transcriptionPrompt && { transcriptionPrompt })
         });
       })
     );
@@ -108,7 +108,7 @@ export default class SessionService {
     return this.aggregateResults(results);
   }
 
-  // 전사 성공/실패 취합
+  /** 전사 성공/실패 취합 */
   private aggregateResults(results: PromiseSettledResult<TranscriptionSegment>[]) {
     const textSegments: string[] = [];
     const errors: SegmentFailure[] = [];
@@ -131,7 +131,7 @@ export default class SessionService {
     return { textSegments, errors };
   }
 
-  // RUNNING -> DONE
+  /** RUNNING -> DONE */
   private async commitSuccess(sessionId: string, content: string, failures: SegmentFailure[]) {
     const batch = adminFirestore.batch();
     const now = Timestamp.now();
@@ -148,7 +148,7 @@ export default class SessionService {
     await this.jobRepo.commitBatch(batch);
   }
 
-  // 결과물 저장
+  /** 결과물 저장 */
   private async save(batch: FirebaseFirestore.WriteBatch, jobId: string, content: string, now: Timestamp) {
     const snippet = content.substring(0, 1000);
     const totalLength = content.length;
@@ -160,18 +160,20 @@ export default class SessionService {
       expiresAt
     });
 
-    if (content.length > 10 * 1024) {
-      const compressedContent = await gzip(content);
+    const contentPayload = await this.prepareContentPayload(content, now);
 
-      this.contentRepo.saveContent(batch, jobId, {
-        data: new Uint8Array(compressedContent),
-        expiresAt,
-      });
-    } else {
-      this.contentRepo.saveContent(batch, jobId, {
-        data: content,
-        expiresAt,
-      });
+    this.contentRepo.saveContent(batch, jobId, contentPayload);
+  }
+
+  /** content 압축 */
+  private async prepareContentPayload(content: string, now: Timestamp) {
+    const expiresAt = Timestamp.fromMillis(now.toMillis() + this.AUDIO_CACHE_TTL);
+
+    if (content.length > 10 * 1024) {
+      const compressed = await gzip(content);
+      return { data: new Uint8Array(compressed), expiresAt };
     }
+
+    return { data: content, expiresAt };
   }
 }

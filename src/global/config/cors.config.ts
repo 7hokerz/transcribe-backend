@@ -1,15 +1,18 @@
-import { ForbiddenError, ERROR_CODES } from '#global/exception/errors.js';
 import type cors from 'cors';
+import { ForbiddenError, ERROR_CODES } from '#global/exception/errors.js';
 
-const API_URL = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:8080'
-  : ''
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
  * 허용된 CORS Origin 목록
  */
 const allowedOrigins = [
-  API_URL,
+  // 로컬 개발 환경
+  ...(isDevelopment ? [
+    'http://localhost:8080',
+  ] : []),
+
+  // 프로덕션 환경 (환경변수로 관리)
 ];
 
 export const corsOptions: cors.CorsOptions = {
@@ -25,4 +28,9 @@ export const corsOptions: cors.CorsOptions = {
       }));
     }
   },
+
+  credentials: true, // 쿠키/인증 헤더 허용
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['*'],
+  maxAge: 86400, // preflight 캐싱 (24시간)
 };

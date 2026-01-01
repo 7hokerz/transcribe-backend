@@ -1,25 +1,16 @@
-import { z } from 'zod';
+export interface TranscriptionJob {
+  /** 전사 세션 식별자(UUID) */
+  sessionId: string;
 
-export const TranscriptionJobSchema = z.object({
-  sessionId: z.uuid()
-    .describe('전사 세션 식별자(UUID)'),
+  /** 스토리지 객체 경로 */
+  path: string;
 
-  path: z.string()
-    .min(1)
-    .describe('스토리지 객체 경로'),
+  /** 스토리지 객체 generation(버전 식별자) */
+  generation: string;
 
-  generation: z.string()
-    .min(1)
-    .describe('스토리지 객체 generation(버전 식별자)'),
+  /** 오디오 길이(초) */
+  duration: number;
 
-  duration: z.number()
-    .positive()
-    .describe('오디오 길이(초)'),
-
-  transcriptionPrompt: z.string()
-    .trim()
-    .max(220, 'prompt는 220자 이하여야 합니다.')
-    .optional()
-    .describe('전사 품질 보정을 위한 선택 프롬프트'),
-});
-export type TranscriptionJob = z.infer<typeof TranscriptionJobSchema>;
+  /** 전사 품질 보정을 위한 선택 프롬프트 */
+  transcriptionPrompt?: string;
+}
