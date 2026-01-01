@@ -1,5 +1,5 @@
-import { registerInfra } from '#config/di.js';
-import { registerTranscription } from '#domain/transcribe/container/transcription.register.js';
+import { registerInfra } from '#global/config/dependencies.config.js';
+import { registerTranscription } from '#domain/transcription/container/transcription.register.js';
 
 registerInfra();
 registerTranscription();
@@ -15,16 +15,16 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 // Config imports
-import { corsOptions } from '#config/cors.config.js';
-import { compressionOptions } from '#config/compression.config.js';
-import { notFoundHandler, globalErrorHandler } from '#config/error-handler.config.js';
+import { corsOptions } from '#global/config/cors.config.js';
+import { compressionOptions } from '#global/config/compression.config.js';
+import { notFoundHandler, globalErrorHandler } from '#global/config/error-handler.config.js';
 
-import { ApiAuthMiddleware } from './middlewares/auth.middleware.js';
-import { CloudTasksMiddleware } from 'middlewares/cloud-tasks.middleware.js';
+import { ApiAuthMiddleware } from '#global/middleware/auth.middleware.js';
+import { CloudTasksMiddleware } from '#global/middleware/cloud-tasks.middleware.js';
 
-import transcriptionRequestRoutes from '#domain/transcribe/route/transcribe-audio.route.js';
-import transcriptionTaskRoutes from '#domain/transcribe/route/transcribe-task.route.js';
-import { container } from '#config/container.js';
+import transcriptionRequestRoutes from '#domain/transcription/route/transcribe-audio.route.js';
+import transcriptionTaskRoutes from '#domain/transcription/route/transcribe-task.route.js';
+import { container } from '#global/config/container.config.js';
 
 class App {
   public express: express.Application;

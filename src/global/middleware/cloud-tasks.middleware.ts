@@ -1,6 +1,6 @@
 import { OAuth2Client } from 'google-auth-library';
 import type { Request, Response, NextFunction } from 'express';
-import { ERROR_CODES, UnauthorizedError } from '#utils/errors.js';
+import { ERROR_CODES, UnauthorizedError } from '#global/exception/errors.js';
 
 export class CloudTasksMiddleware {
   private readonly client = new OAuth2Client();

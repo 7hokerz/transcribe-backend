@@ -1,5 +1,5 @@
 
-import { adminFirestore } from "#config/firebase-admin.js";
+import { adminFirestore } from "#global/config/firebase.config.js";
 import { TranscriptionMetaConverter, TranscriptionResultConverter, type TranscriptionContentDoc, type TranscriptionMetaDoc } from "../entity/Transcription.content.js";
 
 export default class TranscriptionContentRepository {

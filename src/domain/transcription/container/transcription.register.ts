@@ -1,6 +1,6 @@
 
 import { asClass, Lifetime } from "awilix";
-import { container } from "#config/container.js";
+import { container } from "#global/config/container.config.js";
 import TranscriptionJobRepository from "../repository/transcription-job.repository.js";
 import TranscriptionContentRepository from "../repository/transcription-content.repository.js";
 import SessionService from "../service/session.service.js";

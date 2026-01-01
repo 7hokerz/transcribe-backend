@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
-import type { Readable } from "stream";
-import { BadRequestError, ERROR_CODES } from "#utils/errors.js";
-import type GcsStorageClient from "#utils/gcs-storage.client.js";
+import { BadRequestError, ERROR_CODES } from "#global/exception/errors.js";
+import type GcsStorageClient from "#storage/GcsManager.js";
+import type { DisposableStream } from "#storage/storage.types.js";
 import type { AudioValidationResult } from "../types/audio-validation-result.js";
 
 type FfprobeMetadata = {
@@ -29,7 +29,7 @@ type NormalizedAudioInfo = {
 };
 
 export default class FFprobeService {
-  private readonly ALLOWED_CODECS = ['aac', 'mp3', 'opus'];
+  private readonly ALLOWED_CODECS = ['aac', 'mp3', 'opus'] as const;
   private readonly ALLOWED_FORMATS = ['m4a', 'mp4', 'mov', 'mp3', 'ogg'] as const;
   private readonly MAX_DURATION = 15 * 60 + 1;
   private readonly MAX_EXECUTION_FFPROBE = 30_000;
@@ -37,12 +37,10 @@ export default class FFprobeService {
   constructor(private readonly storage: GcsStorageClient) { }
 
   public async validateAudioFile(path: string, idx: number, generation: string): Promise<AudioValidationResult> {
-    let fs: Readable | null = null;
     try {
-      const { stream } = this.storage.openReadStream(path, generation, { validation: false });
-      fs = stream;
+      using audioStream = this.storage.openReadStream(path, generation, { validation: false });
 
-      const meta = await this.runFFprobe(fs, idx);
+      const meta = await this.runFFprobe(audioStream, idx);
 
       const info = this.extractAudioInfo(meta, idx, path);
 
@@ -64,15 +62,13 @@ export default class FFprobeService {
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
         metadata: { idx, fileName, error: errMsg }
       });
-    } finally {
-      // 스트림 정리 (메모리 누수 방지)
-      if (fs && !fs.destroyed) fs.destroy();
-      fs = null;
     }
   }
 
   // ffprobe 실행 + stdout 수집 + JSON 파싱
-  private async runFFprobe(stream: Readable, idx: number): Promise<FfprobeMetadata> {
+  private async runFFprobe(audioStream: DisposableStream, idx: number): Promise<FfprobeMetadata> {
+    const { stream } = audioStream;
+
     return new Promise((resolve, reject) => {
       let isSettled = false;
       let stdoutData = '';
@@ -260,7 +256,7 @@ export default class FFprobeService {
   // 허용코덱/포맷/길이 검증
   private validateAudioPolicy(info: NormalizedAudioInfo, idx: number, path: string): void {
     // 코덱 검증 (aac, mp3, opus 지원)
-    if (!this.ALLOWED_CODECS.includes(info.codec)) {
+    if (!this.ALLOWED_CODECS.some(allowed => info.codec.includes(allowed))) {
       throw new BadRequestError({
         message: `Invalid audio codec in chunk ${idx}: '${info.codec}' (allowed: ${this.ALLOWED_CODECS.join(', ')})`,
         clientMessage: `허용되지 않는 오디오 코덱입니다: '${info.codec}'`,

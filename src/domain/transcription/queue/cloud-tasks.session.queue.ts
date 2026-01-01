@@ -1,7 +1,7 @@
 import { CloudTasksClient, protos } from "@google-cloud/tasks";
 import type { StartTranscriptionRequestDto } from "../dto/transcribe.request.dto.js";
-import type { CloudTasksConfig } from "#config/google-cloud.config.js";
-import { mapToInfrastructureError } from "#utils/error-mapper.js";
+import type { CloudTasksConfig } from "#global/config/google-cloud.config.js";
+import { mapToInfrastructureError } from "#global/exception/error-mapper.js";
 
 export default class CloudTasksSessionQueue {
   constructor(

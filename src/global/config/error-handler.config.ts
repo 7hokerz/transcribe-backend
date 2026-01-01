@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
-import { AppError, ValidationError, InternalServerError, TooManyRequestsError, ForbiddenError, BadRequestError, ERROR_CODES } from '../utils/errors.js';
-import { logger } from '#utils/logger.js';
+import { AppError, ValidationError, InternalServerError, TooManyRequestsError, ForbiddenError, BadRequestError, ERROR_CODES } from '#global/exception/errors.js';
+import { logger } from '#global/util/logger.js';
 
 interface ErrorResponse {
   success: false;

@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { adminDatabase } from '#config/firebase-admin.js';
 import admin from 'firebase-admin';
-import { UnauthorizedError, InternalServerError, ERROR_CODES } from '#utils/errors.js';
+import { adminDatabase } from '#global/config/firebase.config.js';
+import { UnauthorizedError, InternalServerError, ERROR_CODES } from '#global/exception/errors.js';
 
 export class ApiAuthMiddleware {
   private readonly CLOCK_SKEW_TOLERANCE = 5 * 60 * 1000; // 타임스탬프 검증

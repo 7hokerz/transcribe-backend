@@ -25,18 +25,9 @@
 
     "baseUrl": "./src",
     "paths": {
-      "#dtos/*": ["dtos/*"],
-      "#common/*": ["common/*"],
-      "#config/*": ["config/*"],
-      "#controllers/*": ["controllers/*"],
-      "#services/*": ["services/*"],
-      "#strategies/*": ["strategies/*"],
-      "#repositories/*": ["repositories/*"],
-      "#routes/*": ["routes/*"],
-      "#utils/*": ["utils/*"],
-      "#queues/*": ["queues/*"],
-      "#types/*": ["types/*"],
-      "#domain/*": ["domain/*"]
+      "#global/*": ["global/*"],
+      "#domain/*": ["domain/*"],
+      "#storage/*": ["storage/*"]
     }
   },
   "include": ["src/**/*"],

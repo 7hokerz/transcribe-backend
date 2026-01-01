@@ -1,8 +1,8 @@
 
-import { adminFirestore } from "#config/firebase-admin.js";
 import { Timestamp } from "firebase-admin/firestore";
+import { adminFirestore } from "#global/config/firebase.config.js";
+import { mapToInfrastructureError } from "#global/exception/error-mapper.js";
 import { TranscribeStatus, TranscriptionJobConverter, type TranscriptionJobDoc } from "../entity/Transcription.job.js";
-import { mapToInfrastructureError } from "#utils/error-mapper.js";
 
 export default class TranscriptionJobRepository {
   private readonly JOB_COLLECTION = 'transcribe-audio' as const;

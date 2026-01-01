@@ -1,6 +1,6 @@
 
-import type { GCSBucket } from '#config/firebase-admin.js'
-import type { AudioChunkRef, AudioStream } from '#types/storage.types.ts';
+import type { GCSBucket } from '#global/config/firebase.config.js'
+import { DisposableStream, type AudioChunkRef } from "./storage.types.js";
 
 export default class GcsStorageClient {
 
@@ -33,7 +33,7 @@ export default class GcsStorageClient {
       end?: number,
       validation: boolean | "crc32c",
     }
-  ): AudioStream {
+  ) {
     const file = this.bucket.file(path, { generation });
 
     const sizeBytes = file.metadata?.size ? Number(file.metadata.size) : undefined;
@@ -44,6 +44,19 @@ export default class GcsStorageClient {
       validation: options.validation
     });
 
-    return { stream, sizeBytes };
+    return new DisposableStream(stream, sizeBytes);
+  }
+
+  public async getSignedUrl(
+    path: string,
+    generation: string,
+    options: {
+      version: 'v2' | 'v4',
+      action: 'read' | 'write' | 'delete' | 'resumable',
+      expires: number,
+    }
+  ) {
+    const [signedUrl] = await this.bucket.file(path, { generation }).getSignedUrl(options);
+    return signedUrl;
   }
 }

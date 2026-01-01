@@ -1,9 +1,10 @@
 import FormData from 'form-data';
-import type { Readable } from "stream";
-import { Pool } from "undici";
-import { BadGatewayError, ERROR_CODES } from '#utils/errors.js';
-import type GcsStorageClient from '#utils/gcs-storage.client.js';
+import { Pool } from 'undici';
+import { BadGatewayError, ERROR_CODES } from '#global/exception/errors.js';
+import type GcsStorageClient from '#storage/GcsManager.js';
+import type { DisposableStream } from '#storage/storage.types.js';
 import type { TranscriptionSegment } from '../types/transcription-segment.js';
+
 
 export const AudioPool = new Pool('https://api.openai.com', {
   connections: 20,
@@ -28,21 +29,11 @@ export default class TranscribeService {
 
   constructor(private readonly storage: GcsStorageClient) { }
 
-  public async transcribeAudio(path: string, generation: string, transcriptionPrompt?: string): Promise<TranscriptionSegment> {
-    let fs: Readable | null = null;
+  public async transcribeAudio(path: string, generation: string, prompt?: string): Promise<TranscriptionSegment> {
     try {
-      const { stream, sizeBytes } = this.storage.openReadStream(path, generation, { validation: "crc32c" });
-      fs = stream;
-
-      const form = new FormData();
-      form.append("file", fs, {
-        filename: path.split("/").pop()!,
-        ...(Number.isFinite(sizeBytes ?? NaN) ? { knownLength: sizeBytes! } : {}),
-      });
-      form.append("model", this.MODELS.GPT_4o_mini_transcribe);
-      form.append("language", this.LANGUAGES.KO);
-      form.append("response_format", "text");
-      if (transcriptionPrompt) form.append("prompt", transcriptionPrompt);
+      using audioStream = this.storage.openReadStream(path, generation, { validation: "crc32c" });
+      
+      const form = this.createRequestForm(audioStream, path, prompt);
 
       const { body, statusCode } = await AudioPool.request({
         method: "POST",
@@ -73,17 +64,31 @@ export default class TranscribeService {
       });
     } catch (e: any) {
       if (e instanceof BadGatewayError) throw e;
-      
+
       throw new BadGatewayError({
         message: `Failed to transcribe ${path.split("/").pop()}: ${e.message ?? e}`,
         clientMessage: '음성 변환에 실패했습니다.',
         code: ERROR_CODES.EXTERNAL.AI_MODEL_FAILED,
         metadata: { fileName: path.split("/").pop(), error: e.message ?? e }
       });
-    } finally {
-      // 스트림 정리 (메모리 누수 방지)
-      if (fs && !fs.destroyed) fs.destroy();
-      fs = null;
     }
   }
+
+  private createRequestForm(audioStream: DisposableStream, path: string, prompt?: string) {
+    const { stream, sizeBytes } = audioStream;
+
+    const form = new FormData();
+
+    form.append("file", stream, {
+      filename: path.split("/").pop()!,
+      ...(Number.isFinite(sizeBytes ?? NaN) ? { knownLength: sizeBytes! } : {}),
+    });
+    form.append("model", this.MODELS.GPT_4o_mini_transcribe);
+    form.append("language", this.LANGUAGES.KO);
+    form.append("response_format", "text");
+    if (prompt) form.append("prompt", prompt);
+
+    return form;
+  }
+
 }

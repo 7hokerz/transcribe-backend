@@ -1,4 +1,4 @@
-import { ForbiddenError, ERROR_CODES } from '#utils/errors.js';
+import { ForbiddenError, ERROR_CODES } from '#global/exception/errors.js';
 import type cors from 'cors';
 
 const API_URL = process.env.NODE_ENV === 'development'

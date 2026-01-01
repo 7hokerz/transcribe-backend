@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import type TranscribeAudioController from '../controller/transcribe-audio.controllers.js';
 import type { AwilixContainer } from 'awilix';
+import type TranscribeAudioController from '../controller/transcribe-audio.controllers.js';
 
 export default function createTranscribeAudioRoutes(container: AwilixContainer) {
   const router = Router();

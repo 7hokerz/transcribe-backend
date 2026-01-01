@@ -2,8 +2,9 @@
 import * as zlib from 'zlib';
 import { promisify } from 'util';
 import { Timestamp } from "firebase-admin/firestore";
-import { adminFirestore } from "#config/firebase-admin.js";
-import type GcsStorageClient from "#utils/gcs-storage.client.js";
+import { adminFirestore } from "#global/config/firebase.config.js";
+import type GcsStorageClient from "#storage/GcsManager.js";
+import { AppError } from '#global/exception/errors.js';
 import type { TranscriptSessionJob } from "../queue/message/transcription.session.job.js";
 import type FFprobeQueue from "../queue/ffprobe.queue.js";
 import type TranscribeQueue from "../queue/transcribe.queue.js";
@@ -11,8 +12,7 @@ import type TranscriptionJobRepository from "../repository/transcription-job.rep
 import type TranscriptionContentRepository from "../repository/transcription-content.repository.js";
 import type { TranscriptionSegment } from "../types/transcription-segment.js";
 import { TranscribeStatus, type SegmentFailure } from "../entity/Transcription.job.js";
-import type { AudioChunkRef } from '#types/storage.types.js';
-import { AppError } from '#utils/errors.js';
+import type { AudioChunkRef } from '#storage/storage.types.js';
 
 const gzip = promisify(zlib.gzip);
 
