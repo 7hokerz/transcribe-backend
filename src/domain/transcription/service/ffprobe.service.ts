@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { BadRequestError, ERROR_CODES } from "#global/exception/errors.js";
-import type GcsStorageClient from "#storage/GcsManager.js";
-import type { DisposableStream } from "#storage/storage.types.js";
+import type GcsStorageClient from "#global/storage/gcs-storage.client.js";
+import type { DisposableStream } from "#global/storage/storage.types.js";
 import type { AudioValidationResult } from "../types/audio-validation-result.js";
 
 type FfprobeMetadata = {

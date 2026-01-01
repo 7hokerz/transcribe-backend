@@ -26,8 +26,7 @@
     "baseUrl": "./src",
     "paths": {
       "#global/*": ["global/*"],
-      "#domain/*": ["domain/*"],
-      "#storage/*": ["storage/*"]
+      "#domain/*": ["domain/*"]
     }
   },
   "include": ["src/**/*"],

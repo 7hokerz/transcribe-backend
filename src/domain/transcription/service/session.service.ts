@@ -3,7 +3,8 @@ import * as zlib from 'zlib';
 import { promisify } from 'util';
 import { Timestamp } from "firebase-admin/firestore";
 import { adminFirestore } from "#global/config/firebase.config.js";
-import type GcsStorageClient from "#storage/GcsManager.js";
+import type GcsStorageClient from "#global/storage/gcs-storage.client.js";
+import type { FileReference } from '#global/storage/storage.types.js';
 import { AppError } from '#global/exception/errors.js';
 import type { TranscriptSessionJob } from "../queue/message/transcription.session.job.js";
 import type FFprobeQueue from "../queue/ffprobe.queue.js";
@@ -12,7 +13,6 @@ import type TranscriptionJobRepository from "../repository/transcription-job.rep
 import type TranscriptionContentRepository from "../repository/transcription-content.repository.js";
 import type { TranscriptionSegment } from "../types/transcription-segment.js";
 import { TranscribeStatus, type SegmentFailure } from "../entity/Transcription.job.js";
-import type { AudioChunkRef } from '#storage/storage.types.js';
 
 const gzip = promisify(zlib.gzip);
 
@@ -85,7 +85,7 @@ export default class SessionService {
   }
 
   // ffprobe 검증 + 전사 작업
-  private async runTranscription(audios: AudioChunkRef[], sessionId: string, transcriptionPrompt?: string) {
+  private async runTranscription(audios: FileReference[], sessionId: string, transcriptionPrompt?: string) {
     const results = await Promise.allSettled(
       audios.map(async (audio, index) => {
         const { duration } = await this.ffprobeQueue.enqueue({

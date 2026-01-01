@@ -1,13 +1,15 @@
 
 import type { GCSBucket } from '#global/config/firebase.config.js'
-import { DisposableStream, type AudioChunkRef } from "./storage.types.js";
+import { DisposableStream, type FileReference } from "./storage.types.js";
 
 export default class GcsStorageClient {
 
   constructor(private readonly bucket: GCSBucket) { }
 
-  // 전체 파일 리스트 획득
-  public async getFiles(prefix: string, options?: { maxResults?: number }): Promise<AudioChunkRef[]> {
+  /**
+   * 전체 파일 리스트 획득
+   */
+  public async getFiles(prefix: string, options?: { maxResults?: number }): Promise<FileReference[]> {
     const [allObjects] = await this.bucket.getFiles({ prefix, maxResults: options?.maxResults ?? 100 });
 
     return allObjects
@@ -24,7 +26,9 @@ export default class GcsStorageClient {
       .filter(x => x.generation.length > 0);
   }
 
-  // 개별 파일 스트림 획득
+  /**
+   * 개별 파일 스트림 획득
+   */
   public openReadStream(
     path: string,
     generation: string,

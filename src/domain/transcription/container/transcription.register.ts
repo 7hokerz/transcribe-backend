@@ -9,7 +9,7 @@ import TranscribeService from "../service/transcribe.service.js";
 import FFprobeQueue from "../queue/ffprobe.queue.js";
 import TranscribeQueue from "../queue/transcribe.queue.js";
 import TranscribeAudioController from "../controller/transcribe-audio.controllers.js";
-import CloudTasksSessionQueue from "../queue/cloud-tasks.session.queue.js";
+import CloudTasksQueue from "#global/queue/cloud-tasks.queue.js";
 import RequestTranscriptionService from "../service/request-transcription.service.js";
 
 export const registerTranscription = () => {
@@ -24,7 +24,7 @@ export const registerTranscription = () => {
 
         ffprobeQueue: asClass(FFprobeQueue, { lifetime: Lifetime.SINGLETON }),
         transcribeQueue: asClass(TranscribeQueue, { lifetime: Lifetime.SINGLETON }),
-        sessionQueue: asClass(CloudTasksSessionQueue, { lifetime: Lifetime.SINGLETON }),
+        sessionQueue: asClass(CloudTasksQueue, { lifetime: Lifetime.SINGLETON }),
 
         transcribeAudioController: asClass(TranscribeAudioController, { lifetime: Lifetime.SINGLETON }),
     });

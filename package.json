@@ -52,7 +52,6 @@
   },
   "imports": {
     "#global/*": "./dist/global/*",
-    "#domain/*": "./dist/domain/*",
-    "#storage/*": "./dist/storage/*"
+    "#domain/*": "./dist/domain/*"
   }
 }

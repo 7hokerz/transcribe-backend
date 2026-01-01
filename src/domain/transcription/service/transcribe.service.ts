@@ -1,20 +1,9 @@
 import FormData from 'form-data';
-import { Pool } from 'undici';
 import { BadGatewayError, ERROR_CODES } from '#global/exception/errors.js';
-import type GcsStorageClient from '#storage/GcsManager.js';
-import type { DisposableStream } from '#storage/storage.types.js';
+import { AudioPool } from '#global/config/openai-pool.config.js';
+import type GcsStorageClient from '#global/storage/gcs-storage.client.js';
+import type { DisposableStream } from '#global/storage/storage.types.js';
 import type { TranscriptionSegment } from '../types/transcription-segment.js';
-
-
-export const AudioPool = new Pool('https://api.openai.com', {
-  connections: 20,
-  pipelining: 1,
-  keepAliveTimeout: 30_000,
-  keepAliveMaxTimeout: 300_000,
-  connectTimeout: 5_000,
-  headersTimeout: 90_000,
-  bodyTimeout: 90_000,
-});
 
 export default class TranscribeService {
   private readonly MODELS = {
