@@ -97,11 +97,22 @@ docker compose up --build
 
 ## 폴더 개요
 - `src/app.ts`, `src/server.ts`: Express 앱 부트스트랩 및 서버 기동
-- `src/routes/` + `src/controllers/`: API 라우트와 엔드포인트 진입점
-- `src/middlewares/auth.middleware.ts`: HMAC 인증/nonce 검증
-- `src/queues/`: ffprobe/transcribe 작업 큐 구성
-- `src/services/`: ffprobe 실행, OpenAI 전송, Firestore/Storage 저장 로직
-- `src/config/`: CORS/압축/오류 처리, Firebase Admin 설정
+- `src/domain/transcription/`: 음성 추출 도메인 모듈
+  - `controller/`: API 엔드포인트 핸들러
+  - `route/`: API 라우트 정의
+  - `service/`: 비즈니스 로직 (ffprobe 실행, OpenAI 전송, Firestore/Storage 저장)
+  - `queue/`: ffprobe 및 transcribe 작업 큐 구성
+  - `repository/`: Firestore 데이터 접근 계층
+  - `dto/`: 요청/응답 데이터 전송 객체
+  - `entity/`: 도메인 엔티티 (Transcription Job, Content)
+  - `container/`: 의존성 주입 컨테이너 등록
+- `src/global/`: 공통 설정 및 유틸리티
+  - `config/`: CORS, 압축, 오류 처리, Firebase Admin, OpenAI Pool 설정
+  - `middleware/`: HMAC 인증, Cloud Tasks 미들웨어
+  - `queue/`: Cloud Tasks 큐 클라이언트
+  - `storage/`: GCS 스토리지 클라이언트
+  - `util/`: 로거 등 유틸리티
+  - `exception/`: 커스텀 예외 및 에러 매퍼
 - `swagger.yml`: OpenAPI 스펙 (개발 모드에서 `/docs` UI)
 
 ## 참고

@@ -1,7 +1,6 @@
 
 import * as zlib from 'zlib';
 import { promisify } from 'util';
-import { Timestamp } from "firebase-admin/firestore";
 import { adminFirestore } from "#global/config/firebase.config.js";
 import type GcsStorageClient from "#global/storage/gcs-storage.client.js";
 import type { FileReference } from '#global/storage/storage.types.js';
@@ -46,7 +45,7 @@ export default class SessionService {
       if (textSegments.length === 0) {
         return await this.jobRepo.markJobFail(sessionId, {
           status: TranscribeStatus.FAILED,
-          updatedAt: Timestamp.now(),
+          updatedAt: new Date(),
           error: { message: '변환 완료된 데이터가 없습니다.' },
           segmentFailures: failures,
         });
@@ -67,7 +66,7 @@ export default class SessionService {
       // RUNNING -> FAIL
       await this.jobRepo.markJobFail(sessionId, {
         status: TranscribeStatus.FAILED,
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date(),
         error: errorInfo,
         segmentFailures: failures,
       }).catch(dbErr => console.error("Failed to mark job fail:", dbErr));
@@ -80,7 +79,7 @@ export default class SessionService {
   private async ensureRunning(sessionId: string) {
     return this.jobRepo.markJobRunningIfAllowed(sessionId, {
       status: TranscribeStatus.RUNNING,
-      updatedAt: Timestamp.now(),
+      updatedAt: new Date(),
     });
   }
 
@@ -134,41 +133,39 @@ export default class SessionService {
   /** RUNNING -> DONE */
   private async commitSuccess(sessionId: string, content: string, failures: SegmentFailure[]) {
     const batch = adminFirestore.batch();
-    const now = Timestamp.now();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + this.AUDIO_CACHE_TTL);
 
     this.jobRepo.markJobDone(batch, sessionId, {
       status: TranscribeStatus.DONE,
       updatedAt: now,
-      expiresAt: Timestamp.fromMillis(now.toMillis() + this.AUDIO_CACHE_TTL),
+      expiresAt,
       segmentFailures: failures
     });
 
-    await this.save(batch, sessionId, content, now);
+    await this.save(batch, sessionId, content, expiresAt);
 
     await this.jobRepo.commitBatch(batch);
   }
 
   /** 결과물 저장 */
-  private async save(batch: FirebaseFirestore.WriteBatch, jobId: string, content: string, now: Timestamp) {
+  private async save(batch: FirebaseFirestore.WriteBatch, jobId: string, content: string, expiresAt: Date) {
     const snippet = content.substring(0, 1000);
     const totalLength = content.length;
-    const expiresAt = Timestamp.fromMillis(now.toMillis() + this.AUDIO_CACHE_TTL);
-
+    
     this.contentRepo.saveMeta(batch, jobId, {
       snippet,
       totalLength,
       expiresAt
     });
 
-    const contentPayload = await this.prepareContentPayload(content, now);
+    const contentPayload = await this.prepareContentPayload(content, expiresAt);
 
     this.contentRepo.saveContent(batch, jobId, contentPayload);
   }
 
   /** content 압축 */
-  private async prepareContentPayload(content: string, now: Timestamp) {
-    const expiresAt = Timestamp.fromMillis(now.toMillis() + this.AUDIO_CACHE_TTL);
-
+  private async prepareContentPayload(content: string, expiresAt: Date) {
     if (content.length > 10 * 1024) {
       const compressed = await gzip(content);
       return { data: new Uint8Array(compressed), expiresAt };

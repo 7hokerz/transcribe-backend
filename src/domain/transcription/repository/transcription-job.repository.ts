@@ -1,5 +1,4 @@
 
-import { Timestamp } from "firebase-admin/firestore";
 import { adminFirestore } from "#global/config/firebase.config.js";
 import { mapToInfrastructureError } from "#global/exception/error-mapper.js";
 import { TranscribeStatus, TranscriptionJobConverter, type TranscriptionJobDoc } from "../entity/Transcription.job.js";
@@ -10,7 +9,7 @@ export default class TranscriptionJobRepository {
     .collection(this.JOB_COLLECTION)
     .withConverter(TranscriptionJobConverter);
 
-  // CREATED
+  /** CREATED */
   public async ensureJobExisted(jobId: string, jobPayload: TranscriptionJobDoc) {
     const jobRef = this.jobCollection.doc(jobId);
 
@@ -26,7 +25,7 @@ export default class TranscriptionJobRepository {
     }
   }
 
-  // CREATED -> RUNNING
+  /** CREATED -> RUNNING */
   public async markJobRunningIfAllowed(jobId: string, jobPayload: Partial<TranscriptionJobDoc>) {
     const jobRef = this.jobCollection.doc(jobId);
 
@@ -42,7 +41,9 @@ export default class TranscriptionJobRepository {
         if (!job) return false;
 
         if (job.status === TranscribeStatus.DONE || job.status === TranscribeStatus.FAILED) return false;
-        if (job.status === TranscribeStatus.RUNNING && job.updatedAt.toMillis() + 5 * 60 * 1000 > Timestamp.now().toMillis()) return false;
+        if (job.status === TranscribeStatus.RUNNING &&
+          job.updatedAt.getTime() + 5 * 60 * 1000 > Date.now())
+          return false;
 
         t.update(jobRef, jobPayload);
 
@@ -53,7 +54,7 @@ export default class TranscriptionJobRepository {
     }
   }
 
-  // RUNNING -> DONE
+  /** RUNNING -> DONE */
   public markJobDone(
     batch: FirebaseFirestore.WriteBatch,
     jobId: string,
@@ -64,7 +65,7 @@ export default class TranscriptionJobRepository {
     batch.update(jobRef, jobPayload);
   }
 
-  // RUNNING -> FAIL
+  /** RUNNING -> FAIL */
   public async markJobFail(jobId: string, jobPayload: Partial<TranscriptionJobDoc>) {
     const jobRef = this.jobCollection.doc(jobId);
 

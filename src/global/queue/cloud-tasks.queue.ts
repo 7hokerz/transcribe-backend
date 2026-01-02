@@ -16,9 +16,7 @@ export default class CloudTasksQueue {
     return this.submitTask(parent, task);
   }
 
-  /**
-   * 큐 경로 생성
-   */
+  /** 큐 경로 생성 */
   private buildParentPath() {
     return this.TasksClient.queuePath(
       this.TasksConfig.projectId,
@@ -27,9 +25,7 @@ export default class CloudTasksQueue {
     );
   }
 
-  /**
-   * Task 객체 생성
-   */
+  /** Task 객체 생성 */
   private buildTaskObject<T extends object>(payload: T, taskId: string): protos.google.cloud.tasks.v2.ITask {
     const body = Buffer.from(JSON.stringify(payload)).toString('base64');
 
@@ -54,9 +50,7 @@ export default class CloudTasksQueue {
     };
   }
 
-  /**
-   * Task 삽입 (API 호출)
-   */
+  /** Task 삽입 (API 호출) */
   private async submitTask(parent: string, task: protos.google.cloud.tasks.v2.ITask) {
     try {
       await this.TasksClient.createTask({ parent, task });

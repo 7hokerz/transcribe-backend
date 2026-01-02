@@ -1,4 +1,3 @@
-import { Timestamp } from "firebase-admin/firestore";
 import type CloudTasksQueue from "#global/queue/cloud-tasks.queue.js";
 import { TranscribeStatus } from "../entity/Transcription.job.js";
 import type { StartTranscriptionRequestDto } from "../dto/transcribe.request.dto.js";
@@ -11,12 +10,14 @@ export default class RequestTranscriptionService {
   ) { }
 
   public async requestTranscription(dto: StartTranscriptionRequestDto) {
+    const now = new Date();
+
     // job 문서 생성
     await this.jobRepo.ensureJobExisted(dto.sessionId, {
       userId: dto.userId,
       status: TranscribeStatus.CREATED,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      createdAt: now,
+      updatedAt: now,
     });
 
     const taskId = `transcribe-${dto.sessionId}`;
