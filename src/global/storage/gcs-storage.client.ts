@@ -4,11 +4,11 @@ import { DisposableStream, type FileReference } from "./storage.types.js";
 
 export default class GcsStorageClient {
 
-  constructor(private readonly bucket: GCSBucket) { }
+  constructor(private readonly GcsBucket: GCSBucket) { }
 
   /** 전체 파일 리스트 획득 */
   public async getFiles(prefix: string, options?: { maxResults?: number }): Promise<FileReference[]> {
-    const [allObjects] = await this.bucket.getFiles({ prefix, maxResults: options?.maxResults ?? 100 });
+    const [allObjects] = await this.GcsBucket.getFiles({ prefix, maxResults: options?.maxResults ?? 100 });
 
     return allObjects
       .filter(f => !f.name.endsWith('/'))
@@ -34,7 +34,7 @@ export default class GcsStorageClient {
       validation: boolean | "crc32c",
     }
   ) {
-    const file = this.bucket.file(path, { generation });
+    const file = this.GcsBucket.file(path, { generation });
 
     const sizeBytes = file.metadata?.size ? Number(file.metadata.size) : undefined;
 
@@ -56,7 +56,7 @@ export default class GcsStorageClient {
       expires: number,
     }
   ) {
-    const [signedUrl] = await this.bucket.file(path, { generation }).getSignedUrl(options);
+    const [signedUrl] = await this.GcsBucket.file(path, { generation }).getSignedUrl(options);
     return signedUrl;
   }
 }

@@ -1,7 +1,7 @@
-import { registerInfra } from '#global/config/dependencies.config.js';
+import { registerGlobal } from '#global/config/dependencies.config.js';
 import { registerTranscription } from '#domain/transcription/container/transcription.register.js';
 
-registerInfra();
+registerGlobal();
 registerTranscription();
 
 import express from 'express';
@@ -22,9 +22,9 @@ import { notFoundHandler, globalErrorHandler } from '#global/config/error-handle
 import { ApiAuthMiddleware } from '#global/middleware/auth.middleware.js';
 import { CloudTasksMiddleware } from '#global/middleware/cloud-tasks.middleware.js';
 
+import { container } from '#global/config/container.config.js';
 import transcriptionRequestRoutes from '#domain/transcription/route/transcribe-audio.route.js';
 import transcriptionTaskRoutes from '#domain/transcription/route/transcribe-task.route.js';
-import { container } from '#global/config/container.config.js';
 
 class App {
   public express: express.Application;
@@ -33,8 +33,8 @@ class App {
 
   constructor() {
     this.express = express();
-    this.authMiddleware = new ApiAuthMiddleware();
-    this.cloudTasksMiddleware = new CloudTasksMiddleware();
+    this.authMiddleware = container.resolve<ApiAuthMiddleware>('apiAuthMiddleware');
+    this.cloudTasksMiddleware = container.resolve<CloudTasksMiddleware>('cloudTasksMiddleware');
     this.initializeMiddlewares();
     this.initializeRoutes();
     this.initializeErrorHandling();
