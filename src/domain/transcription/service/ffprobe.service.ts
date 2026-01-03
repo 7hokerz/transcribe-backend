@@ -36,7 +36,7 @@ export default class FFprobeService {
 
   constructor(private readonly storage: GcsStorageClient) { }
 
-  public async validateAudioFile(path: string, idx: number, generation: string): Promise<AudioValidationResult> {
+  public async validateAudioFile(path: string, idx: number, generation: string, contentType: string): Promise<AudioValidationResult> {
     try {
       using audioStream = this.storage.openReadStream(path, generation, { validation: false });
 
@@ -74,11 +74,11 @@ export default class FFprobeService {
       let stdoutData = '';
       let stderrData = '';
 
-      const safeResolve = (value: FfprobeMetadata) => {
+      const safeResolve = (v: FfprobeMetadata) => {
         if (isSettled) return;
         isSettled = true;
         cleanup();
-        resolve(value);
+        resolve(v);
       };
 
       const safeReject = (e: Error) => {
@@ -112,6 +112,16 @@ export default class FFprobeService {
         safeReject(new Error(`FFprobe stdin error: ${e.message}`));
       };
 
+      // ffprobe 프로세스 시작 실패 핸들러
+      const onProcessError = (e: Error) => {
+        console.error('[ffprobe] Process spawn error', {
+          idx,
+          error: e.message,
+          timestamp: new Date().toISOString()
+        });
+        safeReject(new Error(`Failed to start ffprobe: ${e.message}`));
+      }
+
       // ffprobe 프로세스 종료 핸들러
       const onClose = (code: number | null) => {
         if (isSettled) return;
@@ -131,25 +141,6 @@ export default class FFprobeService {
           ));
         }
       }
-
-      // ffprobe 프로세스 시작 실패 핸들러
-      const onProcessError = (e: Error) => {
-        console.error('[ffprobe] Process spawn error', {
-          idx,
-          error: e.message,
-          timestamp: new Date().toISOString()
-        });
-        safeReject(new Error(`Failed to start ffprobe: ${e.message}`));
-      }
-
-      const ffprobe = spawn('ffprobe', [
-        '-v', 'error',
-        '-print_format', 'json=c=1',
-        '-show_entries', 'stream=codec_type,codec_name,duration,sample_rate,channels,channel_layout',
-        '-show_entries', 'format=format_name,duration',
-        '-select_streams', 'a:0',
-        '-i', 'pipe:0' // 명시적으로 stdin 사용
-      ]);
 
       // ffprobe 프로세스 강제 종료
       const killProcess = () => {
@@ -172,6 +163,22 @@ export default class FFprobeService {
         ffprobe.removeAllListeners();
       };
 
+      const ffprobe = spawn('ffprobe', [
+        '-v', 'error',                // 로그: 에러만 출력
+        '-print_format', 'json=c=1',  // 출력 포맷: c=1 공백 제거
+        '-show_entries',              // 메타데이터
+        'stream=codec_type,codec_name,duration,width,height,r_frame_rate,sample_rate,channels,channel_layout:format=format_name,duration',
+        '-select_streams', 'a:0',  // 스트림 선택
+        '-i', 'pipe:0'                // 입력 소스: 명시적으로 stdin 사용
+      ]);
+
+      stream.on('error', onStreamError);
+      ffprobe.stdin.on('error', onStdinError);
+      ffprobe.stdout.on('data', (data) => { stdoutData += data.toString(); });
+      ffprobe.stderr.on('data', (data) => { stderrData += data.toString(); });
+      ffprobe.on('close', onClose);
+      ffprobe.on('error', onProcessError);
+
       // 타임아웃 설정
       const timer = setTimeout(() => {
         if (!isSettled) {
@@ -186,26 +193,21 @@ export default class FFprobeService {
         }
       }, this.MAX_EXECUTION_FFPROBE);
 
-      stream.on('error', onStreamError);
-      ffprobe.stdin.on('error', onStdinError);
-      ffprobe.stdout.on('data', (data) => { stdoutData += data.toString(); });
-      ffprobe.stderr.on('data', (data) => { stderrData += data.toString(); });
-      ffprobe.on('close', onClose);
-      ffprobe.on('error', onProcessError);
-
       stream.pipe(ffprobe.stdin);
     });
   }
 
   // 메타데이터에서 필요한 값만 뽑아 정규화
   private extractAudioInfo(meta: FfprobeMetadata, idx: number, path: string): NormalizedAudioInfo {
+    const fileName = path.split('/').pop();
+
     const audioStream = meta.streams?.find((s) => s.codec_type === 'audio');
     if (!audioStream) {
       throw new BadRequestError({
         message: `No valid audio stream found in chunk ${idx}`,
         clientMessage: '유효한 오디오 스트림을 찾을 수 없습니다.',
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName: path.split('/').pop() }
+        metadata: { idx, fileName }
       });
     }
 
@@ -215,7 +217,7 @@ export default class FFprobeService {
         message: `Missing codec_name in chunk ${idx}`,
         clientMessage: "오디오 코덱 정보를 확인할 수 없습니다.",
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName: path.split('/').pop() }
+        metadata: { idx, fileName }
       });
     }
 
@@ -225,7 +227,7 @@ export default class FFprobeService {
         message: `Missing format_name in chunk ${idx}`,
         clientMessage: "파일 포맷 정보를 확인할 수 없습니다.",
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName: path.split('/').pop() }
+        metadata: { idx, fileName }
       });
     }
 
@@ -236,7 +238,7 @@ export default class FFprobeService {
         message: `Missing/invalid duration: '${rawDuration}'`,
         clientMessage: "오디오 길이를 확인할 수 없습니다.",
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, rawDuration, fileName: path.split('/').pop() },
+        metadata: { idx, rawDuration, fileName },
       });
     }
 
@@ -284,4 +286,6 @@ export default class FFprobeService {
       });
     }
   }
+
+
 }

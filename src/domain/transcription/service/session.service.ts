@@ -84,21 +84,23 @@ export default class SessionService {
   }
 
   /** ffprobe 검증 + 전사 작업 */
-  private async runTranscription(audios: FileReference[], sessionId: string, transcriptionPrompt?: string) {
+  private async runTranscription(files: FileReference[], sessionId: string, transcriptionPrompt?: string) {
     const results = await Promise.allSettled(
-      audios.map(async (audio, index) => {
+      files.map(async (file, index) => {
         const { duration } = await this.ffprobeQueue.enqueue({
           sessionId,
-          path: audio.name,
-          generation: audio.generation,
+          path: file.name,
+          generation: file.generation,
+          contentType: file.contentType,
           index,
         });
 
         return this.transcribeQueue.enqueue({
           sessionId,
-          path: audio.name,
-          generation: audio.generation,
+          path: file.name,
+          generation: file.generation,
           duration,
+          index,
           ...(transcriptionPrompt && { transcriptionPrompt })
         });
       })

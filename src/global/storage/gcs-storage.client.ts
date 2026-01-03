@@ -20,8 +20,9 @@ export default class GcsStorageClient {
       .map(f => ({
         name: f.name,
         generation: String(f.metadata?.generation ?? ""),
+        contentType: f.metadata?.contentType ?? "",
       }))
-      .filter(x => x.generation.length > 0);
+      .filter(x => x.generation.length > 0 && x.contentType.length > 0);
   }
 
   /** 개별 파일 스트림 획득 */

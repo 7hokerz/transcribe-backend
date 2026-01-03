@@ -8,6 +8,8 @@ export interface FFprobeJob {
   /** 스토리지 객체 generation(버전 식별자) */
   generation: string;
 
+  contentType: string;
+
   /** 청크 인덱스 */
   index: number;
 }

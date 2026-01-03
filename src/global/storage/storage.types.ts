@@ -6,12 +6,14 @@ export interface FileReference {
 
   /** 스토리지 객체 generation(버전 식별자) */
   generation: string;
+
+  contentType: string;
 }
 
 export class DisposableStream implements Disposable {
   constructor(
     public readonly stream: Readable,
-    public readonly sizeBytes: number | undefined
+    public readonly sizeBytes: number | undefined,
   ) { }
 
   [Symbol.dispose]() {

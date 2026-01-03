@@ -11,6 +11,9 @@ export interface TranscriptionJob {
   /** 오디오 길이(초) */
   duration: number;
 
+  index: number;
+
   /** 전사 품질 보정을 위한 선택 프롬프트 */
   transcriptionPrompt?: string;
+
 }

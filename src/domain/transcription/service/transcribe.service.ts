@@ -41,10 +41,10 @@ export default class TranscribeService {
       }
 
       throw new BadGatewayError({
-        message: `OpenAI Whisper API returned status ${statusCode} for file ${path.split("/").pop()}`,
+        message: `OpenAI Whisper API returned status ${statusCode} for file ${this.extractFileName(path)}`,
         clientMessage: '음성 변환 API 호출에 실패했습니다.',
         code: ERROR_CODES.EXTERNAL.AI_MODEL_FAILED,
-        metadata: { statusCode, fileName: path.split("/").pop(), body: errorBody }
+        metadata: { statusCode, fileName: this.extractFileName(path), body: errorBody }
       });
     } catch (e: any) {
       if (e instanceof BadGatewayError) throw e;
@@ -58,9 +58,7 @@ export default class TranscribeService {
     }
   }
 
-  /**
-   * 요청 폼 데이터 생성
-   */
+  /** 요청 폼 데이터 생성 */
   private createRequestForm(audioStream: DisposableStream, path: string, prompt?: string) {
     const { stream, sizeBytes } = audioStream;
 
