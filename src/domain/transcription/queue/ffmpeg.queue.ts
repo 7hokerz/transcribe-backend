@@ -26,7 +26,7 @@ export default class FFmpegQueue implements JobQueue<FFmpegJob, TranscriptionSeg
   public async enqueue(job: FFmpegJob): Promise<TranscriptionSegment> {
     const { path, generation, duration, index, transcriptionPrompt } = job;
 
-    return await this.queue.add(() =>
+    return this.queue.add(() =>
       pRetry(async () => {
         const fileName = 'audio.aac';
 

@@ -20,7 +20,7 @@ export default class FFprobeQueue implements JobQueue<FFprobeJob, AudioValidatio
   public async enqueue(job: FFprobeJob): Promise<AudioValidationResult> {
     const { path, index, generation, contentType } = job;
 
-    return await this.queue.add(
+    return this.queue.add(
       () => this.ffprobeSvc.validateAudioFile(path, index, generation, contentType)
     );
   }
