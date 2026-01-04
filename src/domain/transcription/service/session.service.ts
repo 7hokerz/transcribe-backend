@@ -11,17 +11,19 @@ import type TranscriptionJobRepository from "../repository/transcription-job.rep
 import type TranscriptionContentRepository from "../repository/transcription-content.repository.js";
 import type { TranscriptionSegment } from "../types/transcription-segment.js";
 import { TranscribeStatus, type SegmentFailure } from "../entity/Transcription.job.js";
+import type FFmpegQueue from '../queue/ffmpeg.queue.js';
 
 const gzip = promisify(zlib.gzip);
 
 export default class SessionService {
   private readonly AUDIO_CACHE_TTL = 10 * 60 * 1000; // 10분
   constructor(
-    private readonly ffprobeQueue: FFprobeQueue,
-    private readonly transcribeQueue: TranscribeQueue,
+    private readonly storage: GcsStorageClient,
     private readonly jobRepo: TranscriptionJobRepository,
     private readonly contentRepo: TranscriptionContentRepository,
-    private readonly storage: GcsStorageClient,
+    private readonly ffprobeQueue: FFprobeQueue,
+    private readonly ffmpegQueue: FFmpegQueue,
+    private readonly transcribeQueue: TranscribeQueue,
   ) { }
 
   public async process(input: TranscriptSessionJob) {
@@ -85,27 +87,32 @@ export default class SessionService {
   /** ffprobe 검증 + 전사 작업 */
   private async runTranscription(files: FileReference[], sessionId: string, transcriptionPrompt?: string) {
     const results = await Promise.allSettled(
-      files.map(async (file, index) => {
-        const { duration } = await this.ffprobeQueue.enqueue({
-          sessionId,
-          path: file.name,
-          generation: file.generation,
-          contentType: file.contentType,
-          index,
-        });
-
-        return this.transcribeQueue.enqueue({
-          sessionId,
-          path: file.name,
-          generation: file.generation,
-          duration,
-          index,
-          ...(transcriptionPrompt && { transcriptionPrompt })
-        });
-      })
+      files.map((file, index) => this.processMediaFile(file, index, sessionId, transcriptionPrompt))
     );
 
     return this.aggregateResults(results);
+  }
+
+  /** 개별 미디어 파일 처리: 검증 후 적절한 큐에 적재 */
+  private async processMediaFile(file: FileReference, index: number, sessionId: string, transcriptionPrompt?: string) {
+    const { duration, isVideo } = await this.ffprobeQueue.enqueue({
+      sessionId,
+      path: file.name,
+      generation: file.generation,
+      contentType: file.contentType,
+      index,
+    });
+
+    const queue = isVideo ? this.ffmpegQueue : this.transcribeQueue;
+
+    return queue.enqueue({
+      sessionId,
+      path: file.name,
+      generation: file.generation,
+      duration,
+      index,
+      ...(transcriptionPrompt && { transcriptionPrompt })
+    });
   }
 
   /** 전사 성공/실패 취합 */
@@ -153,7 +160,7 @@ export default class SessionService {
   private async save(batch: FirebaseFirestore.WriteBatch, jobId: string, content: string, expiresAt: Date) {
     const snippet = content.substring(0, 1000);
     const totalLength = content.length;
-    
+
     this.contentRepo.saveMeta(batch, jobId, {
       snippet,
       totalLength,

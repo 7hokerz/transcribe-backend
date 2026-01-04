@@ -6,9 +6,12 @@ import type { AudioValidationResult } from "../types/audio-validation-result.js"
 
 type FfprobeMetadata = {
   streams?: Array<{
-    codec_type?: string;     // 'audio' 기대
-    codec_name?: string;     // aac|mp3|opus 기대
+    codec_type?: string;     // 'audio'|'video' 기대
+    codec_name?: string;
     duration?: string;
+    width?: number;
+    height?: number;
+    r_frame_rate?: string;
     sample_rate?: string;
     channels?: string;
     channel_layout?: string;
@@ -19,14 +22,29 @@ type FfprobeMetadata = {
   };
 };
 
-type NormalizedAudioInfo = {
-  codec: string;
+interface BaseMediaInfo {
   formatName: string;
   durationSec: number;
+}
+
+interface AudioTrackInfo {
+  codecName: string;
   sampleRateHz?: number;
   channels?: number;
   channelLayout?: string;
-};
+}
+
+interface VideoTrackInfo {
+  codecName: string;
+  width: number;
+  height: number;
+  fps?: number;
+}
+
+interface NormalizedMediaInfo extends BaseMediaInfo {
+  audio?: AudioTrackInfo;
+  video?: VideoTrackInfo;
+}
 
 export default class FFprobeService {
   private readonly ALLOWED_CODECS = ['aac', 'mp3', 'opus'] as const;
@@ -38,18 +56,20 @@ export default class FFprobeService {
 
   public async validateAudioFile(path: string, idx: number, generation: string, contentType: string): Promise<AudioValidationResult> {
     try {
-      using audioStream = this.storage.openReadStream(path, generation, { validation: false });
+      using fileStream = this.storage.openReadStream(path, generation, { validation: false });
 
-      const meta = await this.runFFprobe(audioStream, idx);
+      const selector = contentType.startsWith('video/') ? 'a:0,v:0' : 'a:0';
 
-      const info = this.extractAudioInfo(meta, idx, path);
+      const meta = await this.runFFprobe(fileStream, idx, selector);
+
+      const info = this.extractMediaInfo(meta, idx, path);
 
       this.validateAudioPolicy(info, idx, path);
 
       if (process.env.NODE_ENV === "development") {
         console.log(`청크 ${idx} 검증 완료:`, { ...info, fileName: path.split('/').pop() });
       }
-      return { duration: Math.round(info.durationSec) };
+      return { duration: Math.round(info.durationSec), isVideo: !!info.video };
     } catch (e: any) {
       if (e instanceof BadRequestError) throw e;
 
@@ -65,9 +85,9 @@ export default class FFprobeService {
     }
   }
 
-  // ffprobe 실행 + stdout 수집 + JSON 파싱
-  private async runFFprobe(audioStream: DisposableStream, idx: number): Promise<FfprobeMetadata> {
-    const { stream } = audioStream;
+  /** ffprobe 실행 + stdout 수집 + JSON 파싱 */
+  private async runFFprobe(fileStream: DisposableStream, idx: number, selector: string): Promise<FfprobeMetadata> {
+    const { stream } = fileStream;
 
     return new Promise((resolve, reject) => {
       let isSettled = false;
@@ -168,7 +188,7 @@ export default class FFprobeService {
         '-print_format', 'json=c=1',  // 출력 포맷: c=1 공백 제거
         '-show_entries',              // 메타데이터
         'stream=codec_type,codec_name,duration,width,height,r_frame_rate,sample_rate,channels,channel_layout:format=format_name,duration',
-        '-select_streams', 'a:0',  // 스트림 선택
+        '-select_streams', selector,  // 스트림 선택
         '-i', 'pipe:0'                // 입력 소스: 명시적으로 stdin 사용
       ]);
 
@@ -197,30 +217,11 @@ export default class FFprobeService {
     });
   }
 
-  // 메타데이터에서 필요한 값만 뽑아 정규화
-  private extractAudioInfo(meta: FfprobeMetadata, idx: number, path: string): NormalizedAudioInfo {
+  /** 메타데이터에서 필요한 값만 뽑아 정규화 */
+  private extractMediaInfo(meta: FfprobeMetadata, idx: number, path: string): NormalizedMediaInfo {
     const fileName = path.split('/').pop();
 
-    const audioStream = meta.streams?.find((s) => s.codec_type === 'audio');
-    if (!audioStream) {
-      throw new BadRequestError({
-        message: `No valid audio stream found in chunk ${idx}`,
-        clientMessage: '유효한 오디오 스트림을 찾을 수 없습니다.',
-        code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName }
-      });
-    }
-
-    const codec = audioStream.codec_name;
-    if (!codec) {
-      throw new BadRequestError({
-        message: `Missing codec_name in chunk ${idx}`,
-        clientMessage: "오디오 코덱 정보를 확인할 수 없습니다.",
-        code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, fileName }
-      });
-    }
-
+    // 포맷(컨테이너) 정보 확인
     const formatName = meta.format?.format_name?.toLowerCase();
     if (!formatName) {
       throw new BadRequestError({
@@ -231,9 +232,10 @@ export default class FFprobeService {
       });
     }
 
-    const rawDuration = audioStream.duration ?? meta.format?.duration;
-    const durationSec = rawDuration ? Number.parseFloat(rawDuration) : NaN;
-    if (!Number.isFinite(durationSec)) {
+    // 전체 길이 확인
+    const rawDuration = meta.format?.duration ?? meta.streams?.[0]?.duration;
+    const durationSec = rawDuration ? parseFloat(rawDuration) : NaN;
+    if (!isFinite(durationSec)) {
       throw new BadRequestError({
         message: `Missing/invalid duration: '${rawDuration}'`,
         clientMessage: "오디오 길이를 확인할 수 없습니다.",
@@ -242,28 +244,73 @@ export default class FFprobeService {
       });
     }
 
-    const sampleRateHz = audioStream.sample_rate ? Number.parseInt(audioStream.sample_rate, 10) : undefined;
-    const channels = audioStream.channels ? Number.parseInt(audioStream.channels, 10) : undefined;
+    // 스트림 찾기
+    const videoStream = meta.streams?.find(s => s.codec_type === 'video');
+    const audioStream = meta.streams?.find(s => s.codec_type === 'audio');
+    if (!audioStream) {
+      throw new BadRequestError({
+        message: `No valid audio stream found in chunk ${idx}`,
+        clientMessage: '유효한 오디오 스트림을 찾을 수 없습니다.',
+        code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
+        metadata: { idx, fileName }
+      });
+    }
 
-    return {
-      codec,
+    const result: NormalizedMediaInfo = {
       formatName,
       durationSec,
-      ...(Number.isFinite(sampleRateHz ?? NaN) ? { sampleRateHz: sampleRateHz! } : {}),
-      ...(Number.isFinite(channels ?? NaN) ? { channels: channels! } : {}),
-      ...(audioStream.channel_layout ? { channelLayout: audioStream.channel_layout } : {}),
-    };
+    }
+
+    if (videoStream) {
+      if (!videoStream.codec_name || !videoStream.width || !videoStream.height) {
+        throw new BadRequestError({
+          message: `Missing codec_name in chunk ${idx}`,
+          clientMessage: "비디오 코덱 정보를 확인할 수 없습니다.",
+          code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
+          metadata: { idx, fileName }
+        });
+      }
+
+      result.video = {
+        codecName: videoStream.codec_name,
+        width: videoStream.width,
+        height: videoStream.height,
+      };
+    }
+
+    if (audioStream) {
+      if (!audioStream.codec_name) {
+        throw new BadRequestError({
+          message: `Missing codec_name in chunk ${idx}`,
+          clientMessage: "오디오 코덱 정보를 확인할 수 없습니다.",
+          code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
+          metadata: { idx, fileName }
+        });
+      }
+
+      const sampleRateHz = audioStream.sample_rate ? parseInt(audioStream.sample_rate, 10) : undefined;
+      const channels = audioStream.channels ? parseInt(audioStream.channels, 10) : undefined;
+
+      result.audio = {
+        codecName: audioStream.codec_name,
+        ...(isFinite(sampleRateHz ?? NaN) ? { sampleRateHz: sampleRateHz! } : {}),
+        ...(isFinite(channels ?? NaN) ? { channels: channels! } : {}),
+        ...(audioStream.channel_layout ? { channelLayout: audioStream.channel_layout } : {}),
+      };
+    }
+
+    return result;
   }
 
-  // 허용코덱/포맷/길이 검증
-  private validateAudioPolicy(info: NormalizedAudioInfo, idx: number, path: string): void {
+  /** 허용코덱/포맷/길이 검증 */
+  private validateAudioPolicy(info: NormalizedMediaInfo, idx: number, path: string): void {
     // 코덱 검증 (aac, mp3, opus 지원)
-    if (!this.ALLOWED_CODECS.some(allowed => info.codec.includes(allowed))) {
+    if (!this.ALLOWED_CODECS.some(allowed => info.audio?.codecName.includes(allowed))) {
       throw new BadRequestError({
-        message: `Invalid audio codec in chunk ${idx}: '${info.codec}' (allowed: ${this.ALLOWED_CODECS.join(', ')})`,
-        clientMessage: `허용되지 않는 오디오 코덱입니다: '${info.codec}'`,
+        message: `Invalid audio codec in chunk ${idx}: '${info.audio?.codecName}' (allowed: ${this.ALLOWED_CODECS.join(', ')})`,
+        clientMessage: `허용되지 않는 오디오 코덱입니다: '${info.audio?.codecName}'`,
         code: ERROR_CODES.VALIDATION.INVALID_FORMAT,
-        metadata: { idx, codec: info.codec, allowedCodecs: this.ALLOWED_CODECS, fileName: path.split('/').pop() }
+        metadata: { idx, codec: info.audio?.codecName, allowedCodecs: this.ALLOWED_CODECS, fileName: path.split('/').pop() }
       });
     }
 

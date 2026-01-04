@@ -48,7 +48,7 @@ RUN curl -fsSLo ffmpeg.tar.xz \
 
 # Configure with essential protocols and formats for stdin processing
 RUN ./configure \
-    --disable-programs \
+    --enable-ffmpeg \
     --enable-ffprobe \
     --disable-doc \
     --disable-debug \
@@ -61,6 +61,7 @@ RUN ./configure \
     --enable-protocol=data \
     --enable-protocol=file \
     \
+    # Demuxers (입력 포맷 지원)
     --enable-demuxer=aac \
     --enable-demuxer=mp3 \
     --enable-demuxer=wav \
@@ -72,6 +73,7 @@ RUN ./configure \
     --enable-demuxer=matroska \
     --enable-demuxer=webm \
     \
+    # Decoders (입력 코덱 해석)
     --enable-decoder=aac \
     --enable-decoder=mp3 \
     --enable-decoder=pcm_s16le \
@@ -79,13 +81,28 @@ RUN ./configure \
     --enable-decoder=pcm_s32le \
     --enable-decoder=pcm_f32le \
     --enable-decoder=flac \
+    --enable-decoder=h264 \
+    --enable-decoder=hevc \
+    --enable-decoder=vp8 \
+    --enable-decoder=vp9 \
     \
+    # Encoders (새로 추가됨: 오디오 변환용)
+    --enable-encoder=aac \
+    \
+    # Muxers (새로 추가됨: 스트림 출력용)
+    --enable-muxer=adts \
+    \
+    # Parsers
     --enable-parser=aac \
     --enable-parser=mp3 \
     --enable-parser=flac \
+    --enable-parser=h264 \
+    --enable-parser=hevc \
+    --enable-parser=vp8 \
+    --enable-parser=vp9 \
     \
     && make -j$(nproc) \
-    && strip ffprobe
+    && strip ffmpeg ffprobe
 
 # Verify the built ffprobe supports pipe protocol
 RUN echo "test" | ./ffprobe -v error -f lavfi -i "anullsrc=duration=1:sample_rate=48000:channel_layout=stereo" -hide_banner || echo "Basic test completed"
@@ -101,9 +118,10 @@ WORKDIR /app
 
 # Copy the ffprobe binary from the ffmpeg-builder stage
 COPY --from=ffmpeg-builder /src/ffprobe /usr/local/bin/ffprobe
+COPY --from=ffmpeg-builder /src/ffmpeg /usr/local/bin/ffmpeg
 
 # Set execute permissions
-RUN chmod +x /usr/local/bin/ffprobe
+RUN chmod +x /usr/local/bin/ffprobe /usr/local/bin/ffmpeg
 
 # Verify ffprobe works and supports pipe protocol
 RUN /usr/local/bin/ffprobe -version

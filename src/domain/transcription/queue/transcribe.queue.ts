@@ -29,7 +29,7 @@ export default class TranscribeQueue implements JobQueue<TranscriptionJob, Trans
 
         using fileStream = this.storage.openReadStream(path, generation, { validation: 'crc32c' });
 
-        return await this.transcribeSvc.transcribeAudio(fileStream.stream, fileName, transcriptionPrompt,  fileStream.sizeBytes);
+        return await this.transcribeSvc.transcribeAudio(fileStream.stream, fileName, transcriptionPrompt, fileStream.sizeBytes);
       }, {
         retries: 2,
         factor: 2,
