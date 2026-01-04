@@ -30,7 +30,7 @@
     "p-retry": "^7.1.1",
     "swagger-ui-express": "^5.0.1",
     "undici": "^7.16.0",
-    "zod": "^4.3.4"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",
