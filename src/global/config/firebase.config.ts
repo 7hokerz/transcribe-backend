@@ -3,7 +3,13 @@ import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, cert, getApps, getApp } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 
-export type GCSBucket = ReturnType<typeof adminStorage.bucket>;
+const isDevelopment = process.env.NODE_ENV === 'development';
+const useEmulator = process.env.USE_FIREBASE_EMULATOR === 'true';
+
+// 에뮬레이터 연결
+if (isDevelopment && useEmulator) {
+  process.env.STORAGE_EMULATOR_HOST = '127.0.0.1:9199';
+}
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
 
@@ -21,3 +27,5 @@ adminFirestore.settings({ ignoreUndefinedProperties: true });
 export const adminDatabase = getDatabase(adminApp);
 export const adminStorage = getStorage(adminApp);
 export const bucket = adminStorage.bucket('quiz-whiz-hqbig');
+
+export type GCSBucket = ReturnType<typeof adminStorage.bucket>;

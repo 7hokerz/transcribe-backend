@@ -1,5 +1,6 @@
 import PQueue from 'p-queue';
 import pRetry from 'p-retry';
+import type GcsStorageClient from '#global/storage/gcs-storage.client.js';
 import type TranscribeService from '../service/transcribe.service.js';
 import type { JobQueue } from './queue.interface.js';
 import type { TranscriptionJob } from './message/transcription.job.js';
@@ -9,6 +10,7 @@ export default class TranscribeQueue implements JobQueue<TranscriptionJob, Trans
   private readonly queue: PQueue;
 
   constructor(
+    private readonly storage: GcsStorageClient,
     private readonly transcribeSvc: TranscribeService,
   ) {
     this.queue = new PQueue({
@@ -22,7 +24,13 @@ export default class TranscribeQueue implements JobQueue<TranscriptionJob, Trans
     const { path, generation, duration, transcriptionPrompt } = job;
 
     return await this.queue.add(() =>
-      pRetry(() => this.transcribeSvc.transcribeAudio(path, generation, transcriptionPrompt), {
+      pRetry(async () => {
+        const fileName = path.split("/").pop() ?? 'unknown';
+
+        using fileStream = this.storage.openReadStream(path, generation, { validation: 'crc32c' });
+
+        return await this.transcribeSvc.transcribeAudio(fileStream.stream, fileName, transcriptionPrompt,  fileStream.sizeBytes);
+      }, {
         retries: 2,
         factor: 2,
         minTimeout: 2_000,
